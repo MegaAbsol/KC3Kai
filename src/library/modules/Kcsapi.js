@@ -269,13 +269,24 @@ Previously known as "Reactor"
 		},
 		
 		"api_get_member/useitem":function(params, response, headers){
-			for(let ctr in response.api_data){
-				let thisItem = response.api_data[ctr];
+			// Clean counters first because items become to 0 will not appear in API array at all
+			Object.keys(PlayerManager.consumables).forEach(key => {
+				// these things not real 'useitem' (no data in this API result)
+				if(["fcoin", "buckets", "devmats", "screws", "torch"].indexOf(key) === -1)
+					PlayerManager.consumables[key] = 0;
+			});
+			for(let idx in response.api_data){
+				const thisItem = response.api_data[idx];
 				// Recognize some frequently used items, full IDs set in master useitem
+				// TODO refactoring structure to save api_id too
 				switch(thisItem.api_id){
+					// 1:buckets, 2:torch, 3:devmats, 4:screws not found in this API,
+					// but counts defined in API /material above
 					case 10: PlayerManager.consumables.furniture200 = thisItem.api_count; break;
 					case 11: PlayerManager.consumables.furniture400 = thisItem.api_count; break;
 					case 12: PlayerManager.consumables.furniture700 = thisItem.api_count; break;
+					// 44 not found in this API, as it's not useitem and even not material
+					//case 44: PlayerManager.consumables.fcoin = thisItem.api_count; break;
 					// 50 and 51 not found in this API, as they are slotitem
 					//case 50: PlayerManager.consumables.repairTeam = thisItem.api_count; break;
 					//case 51: PlayerManager.consumables.repairGoddess = thisItem.api_count; break;
@@ -290,12 +301,12 @@ Previously known as "Reactor"
 					case 62: PlayerManager.consumables.hishimochi = thisItem.api_count; break;
 					case 64: PlayerManager.consumables.reinforceExpansion = thisItem.api_count; break;
 					case 65: PlayerManager.consumables.protoCatapult = thisItem.api_count; break;
-					// 66, 67 and 76 not found in this API, as they are slotitem
+					// 66, 67, 69 and 76 not found in this API, as they are slotitem
 					//case 66: PlayerManager.consumables.ration = thisItem.api_count; break;
 					//case 67: PlayerManager.consumables.resupplier = thisItem.api_count; break;
+					//case 69: PlayerManager.consumables.mackerelCan = thisItem.api_count; break;
 					//case 76: PlayerManager.consumables.rationSpecial = thisItem.api_count; break;
 					case 68: PlayerManager.consumables.mackerel = thisItem.api_count; break;
-					case 69: PlayerManager.consumables.mackerelCan = thisItem.api_count; break;
 					case 70: PlayerManager.consumables.skilledCrew = thisItem.api_count; break;
 					case 71: PlayerManager.consumables.nEngine = thisItem.api_count; break;
 					case 72: PlayerManager.consumables.decoMaterial = thisItem.api_count; break;
@@ -1521,6 +1532,7 @@ Previously known as "Reactor"
 						break;
 					case 4:
 						KC3QuestManager.get(426).increment(1); // D24: Quarterly, index 1
+						KC3QuestManager.get(428).increment(0); // D26: Quarterly, index 0
 						break;
 					case 5:
 						KC3QuestManager.get(424).increment();  // D22: Monthly Expeditions
@@ -1533,6 +1545,12 @@ Previously known as "Reactor"
 					case 38:
 						KC3QuestManager.get(410).increment(); // D9: Weekly Expedition 2
 						KC3QuestManager.get(411).increment(); // D11: Weekly Expedition 3
+						break;
+					case 101: // A2
+						KC3QuestManager.get(428).increment(1); // D26: Quarterly, index 1
+						break;
+					case 102: // A3
+						KC3QuestManager.get(428).increment(2); // D26: Quarterly, index 2
 						break;
 					}
 					KC3Network.trigger("Quests");
@@ -1919,8 +1937,8 @@ Previously known as "Reactor"
 					MasterShip.api_tyku[1] - (MasterShip.api_tyku[0] + newShipMod[2]),
 					MasterShip.api_souk[1] - (MasterShip.api_souk[0] + newShipMod[3]),
 					MasterShip.api_luck[1] - (MasterShip.api_luck[0] + newShipMod[4]),
-					OldShipObj.maxHp(true) - (OldShipObj.hp[1] + newShipMod[5]),
-					OldShipObj.maxAswMod() - (OldShipObj.nakedAsw() + newShipMod[6])
+					OldShipObj.maxHp(true) - (OldShipObj.hp[1] - OldShipObj.mod[5] + newShipMod[5]),
+					OldShipObj.maxAswMod() - (OldShipObj.nakedAsw() - OldShipObj.mod[6] + newShipMod[6])
 				]
 			});
 			
@@ -1946,8 +1964,8 @@ Previously known as "Reactor"
 				case 1: // exchange 4 medals with 1 blueprint
 					if(itemId === 57) PlayerManager.consumables.medals -= 4;
 				break;
-				case 2: // exchange 1 medals with materials [300,300,300,300, 0, 2, 0, 0] (guessed)
-				case 3: // exchange 1 medals with 4 screws (guessed)
+				case 2: // exchange 1 medal with materials [300, 300, 300, 300, 0, 2, 0, 0] (guessed)
+				case 3: // exchange 1 medal with 4 screws (guessed)
 					if(itemId === 57) PlayerManager.consumables.medals -= 1;
 				break;
 				case 11: // exchange 1 present box with resources [550, 550, 0, 0]
@@ -1959,6 +1977,15 @@ Previously known as "Reactor"
 				case 22: // exchange 1 hishimochi with materials [0, 2, 0, 1]
 				case 23: // exchange 1 hishimochi with 1 irako (guessed)
 					if(itemId === 62) PlayerManager.consumables.hishimochi -= 1;
+				break;
+				case 31: // exchange 3 saury (sashimi) with resources [0, 300, 150, 0]
+					if(itemId === 68) PlayerManager.consumables.mackerel -= 3;
+				break;
+				case 32: // exchange 5 saury (shioyaki) with materials [0, 0, 3, 1]
+					if(itemId === 68) PlayerManager.consumables.mackerel -= 5;
+				break;
+				case 33: // exchange 7 saury (kabayaki) with 1 saury can & 3 buckets [0, 3, 0, 0]
+					if(itemId === 68) PlayerManager.consumables.mackerel -= 7;
 				break;
 				case 41: // exchange all boxes with fcoins
 					if(itemId === 10) PlayerManager.consumables.furniture200 = 0;
@@ -1977,7 +2004,7 @@ Previously known as "Reactor"
 				break;
 				default:
 					if(isNaN(fExchg)){
-						// exchange 1 chocolate with resources [700,700,700,1500]
+						// exchange 1 chocolate with resources [700, 700, 700, 1500]
 						if(itemId === 56) PlayerManager.consumables.chocolate -= 1;
 					} else {
 						console.log("Unknown exchange type:", fExchg, itemId, aData);
