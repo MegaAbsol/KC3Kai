@@ -512,6 +512,14 @@ html,body {
 	background-repeat:no-repeat;
 }
 
+.module.activity .builds .timer-img.lsc {
+	background:#b70100;
+}
+.module.activity .builds .timer-img.new_ship {
+	filter:drop-shadow(0px 0px 2px #1f1);
+	-webkit-filter:drop-shadow(0px 0px 2px #1f1);
+}
+
 /*------- ACTIVITY: BATTLE -------*/
 .module.activity .activity_battle {
 	white-space:nowrap;
@@ -1044,6 +1052,74 @@ ABYSS FLEET
 .module.activity .node_type_maelstrom {
 	background:#D2C6FF;
 	border:1px solid #AE87E9;
+}
+/* Previously encountered */
+.module.activity .node_type_prev_encounters {
+	color:#eee;
+	font-size:12px;
+}
+.module.activity .node_type_prev_encounters .prev_encounter_label {
+	color:#ffcc00;
+	height:17px;
+}
+.module.activity .node_type_prev_encounters .encounters {
+	height:165px;
+	overflow-x:hidden;
+	overflow-y:auto;
+}
+.module.activity .encounters .encounter_record {
+	width:180px;
+	height:auto;
+	background:rgba(186,187,189,0.4);
+	border-radius:5px;
+	margin:0px 0px 2px 0px;
+	float:left;
+}
+.module.activity .encounters .encounter_formation {
+	width:24px;
+	height:24px;
+	background:#fff;
+	border-radius:50%;
+	margin:1px 0px 0px 2px;
+	float:left;
+}
+.module.activity .encounters .encounter_formation img {
+	width:25px;
+	height:25px;
+	vertical-align:top;
+}
+.module.activity .encounters .encounter_ships {
+	width:154px;
+	height:27px;
+	padding:1px 0px 0px 2px;
+	float:left;
+}
+.module.activity .encounters .encounter_ships.combined {
+	height:53px;
+}
+.module.activity .encounters .encounter_ship {
+	width:25px;
+	height:25px;
+	border-radius:50%;
+	margin:0px 0px 1px 0px;
+	float:left;
+}
+.module.activity .encounters .encounter_ship img {
+	width:25px;
+	height:25px;
+	vertical-align:top;
+}
+.module.activity .encounters .encounter_ship.boss {
+	box-shadow:0px 0px 1px 1px #5ef, 0px 0px 3px 2px #fe5;
+}
+.module.activity .encounters .encounter_ship.kai {
+	box-shadow:0px 0px 1px 1px #2af;
+}
+.module.activity .encounters .encounter_ship.flagship {
+	box-shadow:0px 0px 1px 1px #fc3;
+}
+.module.activity .encounters .encounter_ship.elite {
+	box-shadow:0px 0px 1px 1px #f33;
 }
 /* Text Nodes */
 .module.activity .node_type_text {
@@ -2483,6 +2559,10 @@ ABYSS FLEET
 	padding:3px 0px 0px 0px;
 	position:relative;
 }
+.module.fleet .lship.seven {
+	height:45px;
+	margin-bottom:0px;
+}
 .module.fleet .lship.ship-stamp:after {
 	content: attr(title);
 	display: inline;
@@ -2648,6 +2728,15 @@ ABYSS FLEET
 .module.fleet .lship .ship_hp_prediction {
 	height:9px;
 }
+.module.fleet .lship.seven .ship_hp_box {
+	height:9px;
+}
+.module.fleet .lship.seven .ship_hp_bar {
+	height:7px;
+}
+.module.fleet .lship.seven .ship_hp_prediction {
+	height:7px;
+}
 .module.fleet .lship .ship_hp_pred_value {
 	position:absolute;
 	top:0px;
@@ -2665,6 +2754,9 @@ ABYSS FLEET
 		-1px 0px 1px #3d1414, 1px 0px 1px #3d1414,
 		-1px 1px 1px #3d1414, 0px 1px 1px #3d1414, 1px 1px 1px #3d1414;
 	opacity:0.84;
+}
+.module.fleet .lship.seven .ship_hp_pred_value {
+	top:-1px;
 }
 
 /* ==> Akashi Timer <== */
@@ -2881,6 +2973,9 @@ ABYSS FLEET
 	height:2px;
 	background:#555;
 	margin:0px 0px 0px 46px;
+}
+.module.fleet .lship.seven .ship_exp_box {
+	display:none;
 }
 .module.fleet .lship .ship_exp_bar {
 	height:2px;
@@ -3533,6 +3628,9 @@ ABYSS FLEET
 }
 .ui-tooltip-content p {
 	margin:0px;
+}
+.ui-tooltip-content .power_capped {
+	color:#a08;
 }
 
 .ui-tooltip-content .ship_face_tooltip {

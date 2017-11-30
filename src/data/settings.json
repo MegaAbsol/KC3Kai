@@ -142,6 +142,12 @@
 				"options" : {}
 			},
 			{
+				"id" : "info_prevencounters",
+				"name" : "SettingsPrevEncounters",
+				"type" : "check",
+				"options" : {}
+			},
+			{
 				"id" : "info_battle",
 				"name" : "SettingsBattleData",
 				"type" : "check",
@@ -238,6 +244,20 @@
 						[ 3, "SettingsShipStatsAll" ]
 					]
 				}
+			},
+			{
+				"id" : "info_dex_owned_ship",
+				"name" : "SettingsCheckNewShipFromDex",
+				"type" : "check",
+				"options" : {
+					"tooltip" : "SettingsCheckNewShipFromDexTip"
+				}
+			},
+			{
+				"id" : "info_chuuha_icon",
+				"name" : "SettingsDamagedShipIcon",
+				"type" : "check",
+				"options" : {}
 			},
 			{
 				"id" : "info_seasonal_icon",
@@ -774,6 +794,13 @@
 				"options" : {}
 			},
 			{
+				"id" : "subtitle_duration",
+				"name" : "SettingsSubtitleAccurateDuration",
+				"type" : "check",
+				"hide" : 1,
+				"options" : {}
+			},
+			{
 				"id" : "mute_game_tab",
 				"name" : "SettingsMuteGameTab",
 				"type" : "check",
@@ -828,12 +855,12 @@
 		]
 	},
 	{
-		"section": "SettingsKC3DBSubmission",
+		"section": "SettingsTsunDBSubmission",
 		"help" : "",
 		"contents" :[
 			{
-				"id" : "KC3DBSubmission_enabled",
-				"name" : "SettingsEnableKC3DBSubmission",
+				"id" : "TsunDBSubmission_enabled",
+				"name" : "SettingsEnableTsunDBSubmission",
 				"type" : "check",
 				"options" : {}
 			}

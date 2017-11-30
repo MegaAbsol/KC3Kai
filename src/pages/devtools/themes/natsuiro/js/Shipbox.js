@@ -44,7 +44,7 @@ KC3改 Ship Box for Natsuiro theme
 					tabPath: "mstship-{0}".format($(this).data("masterId"))
 				})).execute();
 			});
-		$(".ship_img img", this.element).attr("src", KC3Meta.shipIcon(this.shipData.masterId));
+		$(".ship_img img", this.element).attr("src", this.shipData.shipIcon() );
 		$(".ship_name", this.element).text( this.shipData.name() );
 		$(".ship_type", this.element).text( this.shipData.stype() );
 		
@@ -58,9 +58,9 @@ KC3改 Ship Box for Natsuiro theme
 		
 		// Item on 5th slot
 		var myExItem = this.shipData.exItem();
-		if( myExItem && myExItem.masterId > 0 ) {
+		if( myExItem.exists() ) {
 			$(".ex_item .gear_icon img", this.element)
-				.attr("src", "../../../../assets/img/items/"+myExItem.master().api_type[3]+".png")
+				.attr("src", "/assets/img/items/"+myExItem.master().api_type[3]+".png")
 				.attr("title", myExItem.htmlTooltip(undefined, this.shipData))
 				.data("masterId", myExItem.masterId)
 				.on("dblclick", function(e){
@@ -158,18 +158,26 @@ KC3改 Ship Box for Natsuiro theme
 		this.showPrediction();
 		this.showMorale();
 		
+		const shipMaster = this.shipData.master();
+		const shipGoal = KC3Calc.getShipLevelingGoal(this.shipData);
 		$(".ship_level span.value", this.element)
 			.text( this.shipData.level )
+			.toggleClass("goaled", this.shipData.level >= shipGoal.targetLevel)
 			.attr( "title", (function(shipData){
-				var mst = shipData.master();
-				return (shipData.level >= (mst.api_afterlv || Infinity)) ?
-					[KC3Meta.term("PanelPossibleRemodel")] :
-					(mst.api_afterlv && [KC3Meta.term("PanelNextRemodelLv"),mst.api_afterlv].join(' ') || '');
-			})(this.shipData) ).lazyInitTooltip()
-			.toggleClass("goaled", (function(shipData){
-				var shipGoal = (localStorage.getObject("goals") || {})["s" + shipData.rosterId];
-				return Array.isArray(shipGoal) && shipData.level >= shipGoal[0];
-			})(this.shipData));
+				let title = "";
+				title += shipMaster.api_afterlv ?
+					(shipData.level >= shipMaster.api_afterlv ? KC3Meta.term("PanelPossibleRemodel")
+						: KC3Meta.term("PanelNextRemodelLv").format(shipMaster.api_afterlv))
+					: "";
+				const nextGoal = isFinite(shipGoal.battlesLeft) && shipGoal.battlesLeft > 0 ?
+					KC3Meta.term("PanelNextLvGoalLeft")
+						.format(shipGoal.targetLevel, shipGoal.battlesLeft) : "";
+				if(nextGoal){
+					if(title) title += "\n";
+					title += nextGoal;
+				}
+				return title;
+			})(this.shipData) ).lazyInitTooltip();
 		$(".ship_exp_next", this.element).text( this.shipData.exp[1] );
 		$(".ship_exp_bar", this.element).css("width", (290*this.expPercent)+"px");
 		
@@ -179,19 +187,19 @@ KC3改 Ship Box for Natsuiro theme
 		$(".ship_fuel .ship_supply_bar", this.element).css("width", (38 * Math.min(this.fuelPercent, 1))+"px");
 		$(".ship_ammo .ship_supply_bar", this.element).css("width", (38 * Math.min(this.ammoPercent, 1))+"px");
 		
-		if(this.fuelPercent<1 || this.ammoPercent<1){
+		if(this.fuelPercent < 1 || this.ammoPercent < 1){
 			var resupplyCost = this.shipData.calcResupplyCost(-1, -1, true);
 			$(".ship_supply", this.element).attr("title",
 				KC3Meta.term("PanelResupplyCosts").format(
-					"+{0} \u27A4{1}".format(resupplyCost.fuel, this.shipData.master().api_fuel_max),
-					"+{0} \u27A4{1}".format(resupplyCost.ammo, this.shipData.master().api_bull_max),
+					"+{0} \u27A4{1}".format(resupplyCost.fuel, shipMaster.api_fuel_max),
+					"+{0} \u27A4{1}".format(resupplyCost.ammo, shipMaster.api_bull_max),
 					resupplyCost.bauxite,
 					this.shipData.isMarried() ? KC3Meta.term("PanelResupplyMarriedHint") : ""
 				)
 			).lazyInitTooltip();
 		} else {
 			$(".ship_supply", this.element).attr("title",
-				"\u27A4{0}\n\u27A4{1}".format(this.shipData.master().api_fuel_max, this.shipData.master().api_bull_max)
+				"\u27A4{0}\n\u27A4{1}".format(shipMaster.api_fuel_max, shipMaster.api_bull_max)
 			).lazyInitTooltip();
 		}
 
@@ -293,7 +301,7 @@ KC3改 Ship Box for Natsuiro theme
 	
 	/* SHOW PREDICTION
 	If enabled, and after-battle HP changed,
-	Show new HP bars and its color (not HP text)
+	Show diff HP text, new HP bars and its color
 	---------------------------------------------------*/
 	KC3NatsuiroShipbox.prototype.showPrediction = function(){
 		// If prediction is disabled, cancel this function
@@ -333,6 +341,13 @@ KC3改 Ship Box for Natsuiro theme
 				$(".ship_hp_prediction", this.element).css("background", "#FFFF00");
 			} else{
 				$(".ship_hp_prediction", this.element).css("background", "#00FF00");
+			}
+			
+			// Change to damaged ship icon if worse than 'chuuha'
+			if(ConfigManager.info_chuuha_icon) {
+				$(".ship_img img", this.element).attr("src",
+					KC3Ship.shipIcon(this.shipData.masterId, this.shipData.hp[1], this.shipData.afterHp[0])
+				);
 			}
 		}
 	};
@@ -378,14 +393,14 @@ KC3改 Ship Box for Natsuiro theme
 				thisGear = KC3GearManager.get( this.shipData.items[slot] );
 				
 				// Unknown item
-				if(thisGear.masterId === 0){
+				if(thisGear.isDummy()){
 					$(".ship_gear_"+(slot+1)+" .ship_gear_icon img", this.element).attr("src",
-						"../../../../assets/img/ui/empty.png");
+						"/assets/img/ui/empty.png");
 					return false;
 				}
 				
 				$(".ship_gear_"+(slot+1)+" .ship_gear_icon img", this.element).attr("src",
-					"../../../../assets/img/items/"+thisGear.master().api_type[3]+".png");
+					"/assets/img/items/"+thisGear.master().api_type[3]+".png");
 				$(".ship_gear_"+(slot+1), this.element).addClass("equipped");
 				$(".ship_gear_"+(slot+1)+" .ship_gear_icon", this.element)
 					.attr("titlealt", thisGear.htmlTooltip(this.shipData.slots[slot], this.shipData))
@@ -407,7 +422,7 @@ KC3改 Ship Box for Natsuiro theme
 					// Is a plane with proficiency level
 					$(".ship_gear_"+(slot+1)+" .ship_gear_ace", this.element).show();
 					$(".ship_gear_"+(slot+1)+" .ship_gear_ace img", this.element)
-						.attr("src", "../../../../assets/img/client/achev/"+thisGear.ace+".png");
+						.attr("src", "/assets/img/client/achev/"+thisGear.ace+".png");
 				}
 				if (thisGear.stars > 0){
 				    // Is a normal equipment that can be upgraded

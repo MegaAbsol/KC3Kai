@@ -1,16 +1,18 @@
 /* Fleet.js
 KC3改 Fleet Object
 
-Contains summary information about a fleet and its 6 ships
+Contains summary information about a fleet and its ships
 */
 (function(){
 	"use strict";
 	
 	window.KC3Fleet = function( data ){
 		this.active = false;
-		this.fastFleet = true;
+		this.fastFleet = false;
+		this.minSpeed = 5;
 		this.fleetId = 0;
 		this.name = "";
+		// might be 7-length for 3rd fleet since 2017-11-17
 		this.ships = [ -1, -1, -1, -1, -1, -1 ];
 		this.mission = [ 0, 0, 0, 0 ];
 
@@ -162,14 +164,14 @@ Contains summary information about a fleet and its 6 ships
 	};
 	
 	KC3Fleet.prototype.clearNonFlagShips = function(){
-		this.ships.fill(-1,1,6);
+		this.ships.fill(-1, 1);
 		this.updateAkashiRepairDisplay();
 	};
 	
 	KC3Fleet.prototype.discard = function(shipId) {
 		var pos = this.ships.indexOf(Number(shipId));
-		if(pos>=0){
-			this.ships.splice(pos,1);
+		if(pos >= 0){
+			this.ships.splice(pos, 1);
 			this.ships.push(-1);
 		}
 	};
@@ -216,13 +218,58 @@ Contains summary information about a fleet and its 6 ships
 	/*--------------------------------------------------------*/
 	
 	KC3Fleet.prototype.countShips = function(){
-		return (this.ships.indexOf(-1)+1 || 7)-1;
-		//return $.grep(this.ships, function(shipId){ return shipId>-1; }).length;
+		return (this.ships.indexOf(-1) + 1 || (this.ships.length + 1)) - 1;
 	};
 	
 	KC3Fleet.prototype.totalLevel = function(){
 		return this.ship().map(function(x){return x.level;})
 			.reduce(function(x,y){return x+y;},0);
+	};
+	
+	KC3Fleet.prototype.totalStats = function(includeEquip = true, includeImproveType = false){
+		const stats = {
+			level: 0, morale: 0, hp: 0,
+			fp: 0, tp: 0, aa: 0, ar: 0,
+			ev: 0, as: 0, ls: 0, lk: 0,
+			ac: 0
+		};
+		this.ship((rid, idx, ship) =>{
+			// always includes modded/marriage bonus values
+			const ss = includeEquip ? {
+				hp: ship.hp[1],
+				fp: ship.fp[0], tp: ship.tp[0], aa: ship.aa[0], ar: ship.ar[0],
+				ev: ship.ev[0], as: ship.as[0], ls: ship.ls[0], lk: ship.lk[0],
+				ac: ship.equipmentTotalStats("houm")
+			} : ship.nakedStats();
+			if(!includeEquip) {
+				// no accuracy if excludes equipment
+				ss.ac = 0;
+				// still includes modded/married luck
+				ss.lk = ship.lk[0];
+			} else {
+				// asw with equipment is a special case
+				ss.as = ship.nakedAsw() + ship.effectiveEquipmentTotalAsw();
+			}
+			ss.level = ship.level;
+			ss.morale = ship.morale;
+			if(includeImproveType) {
+				// TODO use accurate types
+				ship.equipment(true).forEach(gear => {
+					ss.fp += gear.attackPowerImprovementBonus("fire");
+					ss.tp += gear.attackPowerImprovementBonus("torpedo");
+					ss.aa += gear.aaStatImprovementBonus();
+					//ss.ar += gear.armorStatImprovementBonus();
+					ss.ev += gear.evaStatImprovementBonus(includeImproveType);
+					ss.as += gear.attackPowerImprovementBonus("asw");
+					ss.ls += gear.losStatImprovementBonus();
+					ss.ac += gear.accStatImprovementBonus(includeImproveType);
+				});
+			}
+			Object.keys(stats).forEach(stat => {
+				stats[stat] += ss[stat] || 0;
+			});
+		});
+		return stats;
 	};
 	
 	KC3Fleet.prototype.countDrums = function(){
@@ -405,14 +452,12 @@ Contains summary information about a fleet and its 6 ships
 	};
 	
 	KC3Fleet.prototype.fighterPower = function(){
-		return Array.apply(null, {length: 6}).map(Number.call, Number)
-			.map(i => (this.ship(i).didFlee ? 0 : this.ship(i).fighterPower()))
+		return this.shipsUnescaped().map(ship => ship.fighterPower())
 			.reduce((acc, v) => acc + v, 0);
 	};
 	
 	KC3Fleet.prototype.fighterVeteran = function(){
-		return [0,1,2,3,4,5]
-			.map(i => (this.ship(i).didFlee ? 0 : this.ship(i).fighterVeteran()))
+		return this.shipsUnescaped().map(ship => ship.fighterVeteran())
 			.reduce((acc, v) => acc + v, 0);
 	};
 	
@@ -545,6 +590,24 @@ Contains summary information about a fleet and its 6 ships
 		return contactPlaneList;
 	};
 
+	/**
+	 * @return total open airstrike power from all ships in fleet.
+	 * @see KC3Ship.prototype.airstrikePower
+	 * @see KC3Gear.prototype.airstrikePower
+	 */
+	KC3Fleet.prototype.airstrikePower = function(combinedFleetFactor = 0,
+			isJetAssaultPhase = false, contactPlaneId = 0, isCritical = false){
+		const totalPower = [0, 0, false];
+		this.shipsUnescaped().forEach((ship, index) => {
+			const shipPower = ship.airstrikePower(combinedFleetFactor, isJetAssaultPhase,
+				contactPlaneId, isCritical);
+			totalPower[0] += shipPower[0];
+			totalPower[1] += shipPower[1];
+			totalPower[2] = totalPower[2] || shipPower[2];
+		});
+		return totalPower;
+	};
+
 	KC3Fleet.prototype.supportPower = function(){
 		return this.ship(0).supportPower()
 			+this.ship(1).supportPower()
@@ -555,15 +618,9 @@ Contains summary information about a fleet and its 6 ships
 	};
 	
 	KC3Fleet.prototype.speed = function(){
-		this.fastFleet = true;
-		var i = 0;
-		while(this.fastFleet && i < 6) {
-			if(this.ships[i] > -1) {
-				this.fastFleet = this.fastFleet && this.ship(i).isFast();
-			}
-			i++;
-		}
-		return (this.fastFleet) ? KC3Meta.term("SpeedFast") : KC3Meta.term("SpeedSlow");
+		this.minSpeed = Math.min(...this.shipsUnescaped().map(ship => ship.getSpeed()));
+		this.fastFleet = this.minSpeed >= 10;
+		return KC3Meta.shipSpeed(this.minSpeed);
 	};
 
 	KC3Fleet.prototype.adjustedAntiAir = function(formationId){
@@ -633,7 +690,7 @@ Contains summary information about a fleet and its 6 ships
 				totalCost.ammo += cost.ammo;
 				totalCost.steel += cost.steel;
 				totalCost.bauxite += cost.bauxite;
-				totalCost.hasMarried |= shipObj.isMarried();
+				totalCost.hasMarried = totalCost.hasMarried || shipObj.isMarried();
 			}
 		});
 		return totalCost;
@@ -766,8 +823,8 @@ Contains summary information about a fleet and its 6 ships
 	
 	KC3Fleet.prototype.getDameConCodes = function(){
 		var result = [];
-		for(var i=0; i < 6; ++i) {
-			result.push( this.ship(i).findDameCon().code );
+		for(var index in this.ships) {
+			result.push(this.ship(index).findDameCon().code);
 		}
 		return result;
 	};
@@ -955,9 +1012,9 @@ Contains summary information about a fleet and its 6 ships
 		var emptyShipSlot = 0;
 
 		// iterate all ship slots, even some are empty
-		Array.numbers(0, 5).map(i => this.ship(i)).forEach(shipObj => {
+		this.ships.map((rid, i) => this.ship(i)).forEach(shipObj => {
 			// count for empty slots or ships retreated
-			if(shipObj.rosterId <= 0 || shipObj.didFlee) {
+			if(shipObj.isDummy() || shipObj.didFlee) {
 				emptyShipSlot += 1;
 			} else {
 				// sum ship's naked los
@@ -966,7 +1023,7 @@ Contains summary information about a fleet and its 6 ships
 				// iterate ship's equipment including ex-slot
 				let equipTotal = 0;
 				shipObj.equipment(true).forEach(gearObj => {
-					if (gearObj.itemId > 0 && gearObj.masterId > 0) {
+					if (gearObj.exists()) {
 						const itemType = gearObj.master().api_type[2];
 						const itemLos = gearObj.master().api_saku;
 						const multiplier = multipliers[itemType] || defaultMultiplier;
@@ -1180,19 +1237,26 @@ Contains summary information about a fleet and its 6 ships
 	Used for recording sorties on indexedDB
 	Generate fleet summary object without referential data (all masterId)
 	Data must be recorded on the state of sortie execution, thus no reference
+	Stats not recorded here can be computed by master stats + kyouka (mod)
 	------------------------------------*/
 	KC3Fleet.prototype.sortieJson = function(){
 		if(this.active){
 			var ReturnObj = [];
 			var self = this;
 			$.each(this.ships, function(index, rosterId){
-				if(rosterId > -1){
+				if(rosterId > 0){
 					var ship = self.ship(index);
+					var nakedStats = ship.nakedStats();
 					ReturnObj.push({
 						mst_id: ship.masterId,
 						level: ship.level,
-						kyouka: ship.mod,
 						morale: ship.morale,
+						stats: {
+							ev: nakedStats.ev,
+							ls: nakedStats.ls,
+							as: nakedStats.as
+						},
+						kyouka: ship.mod,
 						equip: [
 							ship.equipment(0).masterId,
 							ship.equipment(1).masterId,

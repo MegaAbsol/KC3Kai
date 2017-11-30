@@ -489,13 +489,17 @@
 				KC3StrategyTabs.gotoTab("fleet", "history", $(this).data("id"));
 			};
 			var parseAirRaidFunc = function(airRaid){
+				const damageArray =
+				  airRaid &&
+				  airRaid.api_air_base_attack &&
+				  airRaid.api_air_base_attack.api_stage3 &&
+				  airRaid.api_air_base_attack.api_stage3.api_fdam || [];
 				return {
 					airRaidLostKind: (airRaid || {}).api_lost_kind || 0,
-					baseTotalDamage: airRaid && airRaid.api_air_base_attack
-						&& airRaid.api_air_base_attack.api_stage3
-						&& airRaid.api_air_base_attack.api_stage3.api_fdam ?
-						Math.floor(airRaid.api_air_base_attack.api_stage3.api_fdam.slice(1)
-							.reduce((a, b) => a + b, 0)) : 0
+					baseTotalDamage: damageArray.reduce(
+							(sum, n) => sum + Math.max(0, Math.floor(n)),
+							0
+						),
 				};
 			};
 			$.each(sortieList, function(id, sortie){
@@ -686,6 +690,7 @@
 							var battleData, battleType;
 							
 							// Determine if day or night battle node
+							// misspelling `api_dock_id` fixed since 2017-11-17, but old data still
 							if(typeof battle.data.api_dock_id != "undefined"){
 								battleData = battle.data;
 								battleType = BATTLE_BASIC;
@@ -816,11 +821,15 @@
 							});
 							
 							// Support Exped/LBAS Triggered
-							if(thisNode.supportFlag || thisNode.lbasFlag){
+							if(thisNode.supportFlag || thisNode.lbasFlag || thisNode.nightSupportFlag){
 								$(".node_support img", nodeBox).attr("src", "../../assets/img/ui/support.png");
-								if(thisNode.supportFlag && !!battleData.api_support_info){
-									var fleetId = (battleData.api_support_info.api_support_airatack||{}).api_deck_id
-										|| (battleData.api_support_info.api_support_hourai||{}).api_deck_id || "?";
+								if(
+									(thisNode.supportFlag && battleData.api_support_info) ||
+									(thisNode.nightSupportFlag && battleData.api_n_support_info)
+								) {
+									const supportInfo = battleData.api_support_info || battleData.api_n_support_info;
+									const fleetId = (supportInfo.api_support_airatack||{}).api_deck_id
+										|| (supportInfo.api_support_hourai||{}).api_deck_id || "?";
 									$(".node_support .exped", nodeBox).text(fleetId);
 									$(".node_support .exped", nodeBox).show();
 								}

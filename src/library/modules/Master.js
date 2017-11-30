@@ -13,7 +13,8 @@ Saves and loads significant data for future use
 		// Not start from, excluding
 		abyssalShipIdFrom: 1500,
 		abyssalGearIdFrom: 500,
-		// Devs still archive seasonal ID backward from current max 997
+		// Devs still archive seasonal ID backward from old max 997
+		// Since 2017-11-27, 998~ going to be used
 		seasonalCgIdFrom: 700,
 		// Clear new updates data after 1 week
 		newUpdatesExpiredAfter: 7 * 24 * 60 * 60 * 1000,
@@ -249,6 +250,11 @@ Saves and loads significant data for future use
 			return this._raw.mission || {};
 		},
 
+		missionDispNo :function(id){
+			var dispNo = (this.mission(id) || {}).api_disp_no;
+			return dispNo || String(id);
+		},
+
 		abyssalShip :function(id, isMasterMerged){
 			var master = !!isMasterMerged && this.isAbyssalShip(id) && $.extend({}, this.ship(id)) || {};
 			return Object.keys(master).length === 0 &&
@@ -316,7 +322,7 @@ Saves and loads significant data for future use
 						var tempRaw = JSON.parse(localStorage[storType]);
 						if(!tempRaw.ship) throw Error("Non-existing ship");
 
-						this.available |= keyStor[storType].call(this,tempRaw);
+						this.available = this.available || keyStor[storType].call(this,tempRaw);
 						console.info("Loaded master: %c%s%c data", "color:darkblue", storType, "color:initial");
 					} catch (e) {
 						console.error("Failed to process master: %s data", storType, e);

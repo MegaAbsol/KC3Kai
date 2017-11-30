@@ -12,6 +12,9 @@ if (typeof NO_GA == "undefined") {
 		var s = document.getElementsByTagName('script')[0];
 		if(s && s.parentNode) s.parentNode.insertBefore(ga, s);
 	})();
+} else {
+	var _gaq = [];
+	_gaq.push = function() {};
 }
 
 /*
@@ -543,6 +546,21 @@ Array.numbers = function(start, end){
 	while(i-- > 0) a[i] = n + i;
 	return a;
 };
+/** Pad values into array to reach the length */
+Array.pad = function(array, length, value, original){
+	if (!Array.isArray(array)) {
+		// give back non-array
+		return array;
+	}
+	array = original ? array : array.slice(0);
+	length = length || 0;
+	var method = length < 0 ? 'unshift' : 'push';
+	var total = Math.abs(length);
+	while(array.length < total) {
+		array[method](value);
+	}
+	return array;
+};
 
 /*******************************\
 |*** Object                     |
@@ -830,6 +848,8 @@ Storage.prototype.getObject = function(key) {
  * https://developer.chrome.com/extensions/storage
  * They are also different for other browser engines:
  * https://en.wikipedia.org/wiki/Web_storage#Storage_size
+ * From Chromium 61, localStorage is switched to leveldb backing store, but 5M quota unchanged.
+ * https://bugs.chromium.org/p/chromium/issues/detail?id=586194
  **/
 Storage.prototype.quotaLength = 1024 * 1024 * 5;
 // Both length of key and value should be taken into account,

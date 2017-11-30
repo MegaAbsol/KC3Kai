@@ -150,28 +150,33 @@ Does not include Ships and Gears which are managed by other Managers
 		},
 
 		setRepairDocks :function( data ){
-			var lastRepair = this.repairShips.map(function(x){return x;}); // clone
-			this.repairShips.splice(0);
-			var dockingShips = [];
-			var self = this;
+			// clone last repairing ship list, empty current list
+			const lastRepair = this.repairShips.splice(0);
+			this.repairShips.push(-1);
+			const dockingShips = [];
+			const self = this;
 			$.each(data, function(ctr, ndock){
-				if(lastRepair[ndock.api_id] != ndock.api_ship_id) { // check if not in the list (repaired)
-					KC3ShipManager.get(lastRepair[ndock.api_id]).applyRepair();
+				const dockNum = ndock.api_id;
+				const shipRosterId = ndock.api_ship_id;
+				// check if not in the repairing list, mark as repaired
+				if(lastRepair[dockNum] > 0 && lastRepair[dockNum] != shipRosterId) {
+					KC3ShipManager.get(lastRepair[dockNum]).applyRepair();
 				}
-
 				if(ndock.api_state > 0){
-					self.repairShips[ ndock.api_id ] = ndock.api_ship_id;
-					var repairInfo =
-						{ id: ndock.api_ship_id,
-						  completeTime: ndock.api_complete_time
-						};
-					dockingShips.push( repairInfo );
-					KC3TimerManager.repair( ndock.api_id ).activate(
+					self.repairShips[dockNum] = shipRosterId;
+					dockingShips.push( {
+						id: shipRosterId,
+						completeTime: ndock.api_complete_time
+					} );
+					KC3TimerManager.repair(dockNum).activate(
 						ndock.api_complete_time,
-						KC3ShipManager.get( ndock.api_ship_id ).masterId
+						KC3ShipManager.get(shipRosterId).masterId,
+						undefined,
+						shipRosterId
 					);
 				}else{
-					KC3TimerManager.repair( ndock.api_id ).deactivate();
+					self.repairShips[dockNum] = -1;
+					KC3TimerManager.repair(dockNum).deactivate();
 				}
 			});
 			// "localStorage.dockingShips" is not supposed
@@ -204,15 +209,20 @@ Does not include Ships and Gears which are managed by other Managers
 		setBuildDocks :function( data ){
 			$.each(data, function(ctr, kdock){
 				if(kdock.api_state > 0){
-					KC3TimerManager.build( kdock.api_id ).activate(
+					const faceId = kdock.api_created_ship_id;
+					const timer = KC3TimerManager.build( kdock.api_id );
+					timer.activate(
 						kdock.api_complete_time,
-						kdock.api_created_ship_id
+						faceId
 					);
 					if(kdock.api_item1 > 999){
-						KC3TimerManager.build( kdock.api_id ).lsc = true;
+						timer.lsc = true;
 					}else{
-						KC3TimerManager.build( kdock.api_id ).lsc = false;
+						timer.lsc = false;
 					}
+					timer.newShip = ConfigManager.info_dex_owned_ship ?
+						! PictureBook.isEverOwnedShip(faceId) :
+						! KC3ShipManager.masterExists(faceId);
 				}else{
 					KC3TimerManager.build( kdock.api_id ).deactivate();
 				}

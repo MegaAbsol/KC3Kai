@@ -33,6 +33,8 @@ KC3改 Equipment Object
 		}
 	};
 
+	KC3Gear.prototype.exists = function(){ return this.itemId > 0 && this.masterId > 0; };
+	KC3Gear.prototype.isDummy = function(){ return ! this.exists(); };
 	KC3Gear.prototype.master = function(){ return KC3Master.slotitem( this.masterId ); };
 	KC3Gear.prototype.name = function(){ return KC3Meta.gearName( this.master().api_name ); };
 
@@ -41,7 +43,7 @@ KC3改 Equipment Object
 	--------------------------------------------------------------*/
 	KC3Gear.prototype.fighterPower = function(capacity = 0){
 		// Empty item means no fighter power
-		if(this.itemId === 0){ return 0; }
+		if(this.isDummy()){ return 0; }
 
 		// Check if this object is a fighter plane
 		if(KC3GearManager.antiAirFighterType2Ids.indexOf( this.master().api_type[2] ) > -1){
@@ -66,7 +68,7 @@ KC3改 Equipment Object
 	 * @see http://wikiwiki.jp/kancolle/?%B2%FE%BD%A4%B9%A9%BE%B3#ic9d577c
 	 */
 	KC3Gear.prototype.attackPowerImprovementBonus = function(type = "fire") {
-		if(!this.itemId || !this.masterId) { return 0; }
+		if(this.isDummy()) { return 0; }
 		const type2 = this.master().api_type[2];
 		const stars = this.stars || 0;
 		// No improvement bonus is default
@@ -127,7 +129,7 @@ KC3改 Equipment Object
 	 * @see http://wikiwiki.jp/kancolle/?%B2%FE%BD%A4%B9%A9%BE%B3#oe80ec59
 	 */
 	KC3Gear.prototype.accStatImprovementBonus = function(type = "fire") {
-		if(!this.itemId || !this.masterId) { return 0; }
+		if(this.isDummy()) { return 0; }
 		const type2 = this.master().api_type[2];
 		const stars = this.stars || 0;
 		let modifier = 0;
@@ -163,7 +165,7 @@ KC3改 Equipment Object
 	 * @see http://wikiwiki.jp/kancolle/?%B2%FE%BD%A4%B9%A9%BE%B3#oe80ec59
 	 */
 	KC3Gear.prototype.evaStatImprovementBonus = function(type = "fire") {
-		if(!this.itemId || !this.masterId) { return 0; }
+		if(this.isDummy()) { return 0; }
 		const type2 = this.master().api_type[2];
 		const stars = this.stars || 0;
 		let modifier = 0;
@@ -193,7 +195,7 @@ KC3改 Equipment Object
 	 * @see http://wikiwiki.jp/kancolle/?%B2%FE%BD%A4%B9%A9%BE%B3#k9b5bd32
 	 */
 	KC3Gear.prototype.losStatImprovementBonus = function() {
-		if(!this.itemId || !this.masterId) { return 0; }
+		if(this.isDummy()) { return 0; }
 		const type2 = this.master().api_type[2];
 		const stars = this.stars || 0;
 		let modifier = 0;
@@ -216,7 +218,7 @@ KC3改 Equipment Object
 	 * @see http://wikiwiki.jp/kancolle/?%B2%FE%BD%A4%B9%A9%BE%B3#ic9d577c
 	 */
 	KC3Gear.prototype.aaStatImprovementBonus = function() {
-		if(!this.itemId || !this.masterId) { return 0; }
+		if(this.isDummy()) { return 0; }
 		const type2 = this.master().api_type[2];
 		const stars = this.stars || 0;
 		let modifier = 0;
@@ -238,7 +240,7 @@ KC3改 Equipment Object
 	--------------------------------------------------------------*/
 	KC3Gear.prototype.fighterVeteran = function(capacity = 0, forLbas = false){
 		// Empty item or slot means no fighter power
-		if(this.itemId === 0 || capacity <= 0){ return 0; }
+		if(this.isDummy() || capacity <= 0) { return 0; }
 
 		var type2 = this.master().api_type[2],
 			type3 = this.master().api_type[3];
@@ -268,7 +270,7 @@ KC3改 Equipment Object
 	--------------------------------------------------------------*/
 	KC3Gear.prototype.fighterBounds = function(capacity = 0, forLbas = false){
 		// Empty item or slot means no fighter power
-		if(this.itemId === 0 || capacity <= 0){ return [0, 0]; }
+		if(this.isDummy() || capacity <= 0) { return [0, 0]; }
 
 		var type2 = this.master().api_type[2],
 			type3 = this.master().api_type[3];
@@ -309,7 +311,7 @@ KC3改 Equipment Object
 	--------------------------------------------------------------*/
 	KC3Gear.prototype.interceptionPower = function(capacity = 0){
 		// Empty item or slot means no fighter power
-		if(this.itemId === 0 || capacity <= 0){ return 0; }
+		if(this.isDummy() || capacity <= 0) { return 0; }
 		var type2 = this.master().api_type[2],
 			type3 = this.master().api_type[3];
 		// Check if this object is a interceptor plane or not
@@ -344,7 +346,7 @@ KC3改 Equipment Object
 	 * @return tuple of [low power, high power, isRange]
 	 */
 	KC3Gear.prototype.airstrikePower = function(capacity = 0, combinedFleetFactor = 0, isJetAssault = false){
-		if(!this.itemId || !this.masterId) { return [0, 0, false]; }
+		if(this.isDummy()) { return [0, 0, false]; }
 		if(this.isAirstrikeAircraft()) {
 			const type2 = this.master().api_type[2];
 			const isTorpedoBomber = [8, 58].includes(type2);
@@ -371,7 +373,7 @@ KC3改 Equipment Object
 	 * Get pre-cap support airstrike power from this land-based aircraft.
 	 */
 	KC3Gear.prototype.landbaseAirstrikePower = function(capacity = 0, targetShipId = 0){
-		if(!this.itemId || !this.masterId) { return 0; }
+		if(this.isDummy()) { return 0; }
 		let result = 0;
 		if(this.isAirstrikeAircraft()) {
 			const type2 = this.master().api_type[2];
@@ -399,12 +401,16 @@ KC3改 Equipment Object
 
 	KC3Gear.prototype.bauxiteCost = function(slotCurrent, slotMaxeq){
 		// Only used for the slot already equipped aircraft, unused for now
-		if(this.itemId===0){ return 0; }
+		if(this.isDummy()) { return 0; }
 		if( KC3GearManager.carrierBasedAircraftType3Ids.indexOf( this.master().api_type[3] ) > -1){
 			return KC3GearManager.carrierSupplyBauxiteCostPerSlot * (slotMaxeq - slotCurrent);
 		}
 		return 0;
 	};
+
+	// Following methods used to type equips not by category, but by functionality (stats).
+	// Some special cases used just in case are defined at Ship object.
+	// Handling data only from master defined at AntiAir module.
 
 	KC3Gear.prototype.isAntiAirAircraft = function(){
 		return this.masterId > 0 &&
@@ -445,9 +451,26 @@ KC3改 Equipment Object
 			type2.indexOf(this.master().api_type[2]) > -1;
 	};
 
+	KC3Gear.prototype.isAirRadar = function(){
+		return this.masterId > 0 &&
+			[12, 13].indexOf(this.master().api_type[2]) > -1 &&
+			this.master().api_tyku > 0;
+	};
+
+	KC3Gear.prototype.isAafdBuiltinHighAngleMount = function(){
+		return this.masterId > 0 &&
+			[1, 4].indexOf(this.master().api_type[2]) > -1 &&
+			this.master().api_tyku > 7;
+	};
+
+	KC3Gear.prototype.isCdMachineGun = function(){
+		return this.masterId > 0 &&
+			this.master().api_type[2] === 21 &&
+			this.master().api_tyku > 8;
+	};
+
 	KC3Gear.prototype.aaDefense = function(forFleet) {
-		if (this.masterId === 0)
-			return 0;
+		if (this.isDummy()) { return 0; }
 		// permissive on "this.stars" in case the improvement level is not yet available.
 		var stars = (typeof this.stars === "number") ? this.stars : 0;
 		return KC3Gear.aaDefense( this.master(), stars, forFleet );
@@ -468,8 +491,8 @@ KC3改 Equipment Object
 	};
 	/** Also export a static method */
 	KC3Gear.buildGearTooltip = function(gearObj, altName, slotSize, shipOrLb) {
+		if(!gearObj || gearObj.isDummy()) { return ""; }
 		const gearData = gearObj.master();
-		if(gearObj.itemId === 0 || gearData === false){ return ""; }
 		const title = $('<div><span class="name"></span><br/></div>');
 		var nameText = altName || gearObj.name();
 		if(altName === true){
@@ -594,16 +617,16 @@ KC3改 Equipment Object
 			$(".icon", powBox).width(13).height(13).css("margin-top", "-3px");
 			let valueBox = $('<div><span class="vl"></span>(<span class="vlc"></span>)</div>');
 			$(".vl", valueBox).text(onNormal[0]);
-			if(isOverCap[0]) $(".vl", valueBox).css("color", "#a08");
+			if(isOverCap[0]) $(".vl", valueBox).addClass("power_capped");
 			$(".vlc", valueBox).text(onCritical[0]);
-			if(isOverCap[0]) $(".vlc", valueBox).css("color", "#a08");
+			if(isOverCap[0]) $(".vlc", valueBox).addClass("power_capped");
 			$(".value", powBox).append(valueBox.html());
 			if(isRange) {
 				let valueBox = $('<div><span class="vh"></span>(<span class="vhc"></span>)</div>');
 				$(".vh", valueBox).text(onNormal[1]);
-				if(isOverCap[1]) $(".vh", valueBox).css("color", "#a08");
+				if(isOverCap[1]) $(".vh", valueBox).addClass("power_capped");
 				$(".vhc", valueBox).text(onCritical[1]);
-				if(isOverCap[1]) $(".vhc", valueBox).css("color", "#a08");
+				if(isOverCap[1]) $(".vhc", valueBox).addClass("power_capped");
 				$(".value", powBox).append(" / ").append(valueBox.html());
 			}
 			tooltipTitle.append("<br/>").append(powBox.html());

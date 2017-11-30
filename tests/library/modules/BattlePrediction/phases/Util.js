@@ -4,12 +4,12 @@ QUnit.module('modules > BattlePrediction > phases', function () {
   QUnit.module('normalizeFieldArrays', {
     beforeEach() { this.subject = Util.normalizeFieldArrays; },
   }, function () {
-    QUnit.test('change to 0-based indexing', function (assert) {
-      assert.deepEqual(this.subject('a', [-1]), []);
-    });
-
     QUnit.test('embed field name in array elements', function (assert) {
       assert.deepEqual(this.subject('a', [1, 2, 3]), [{ a: 1 }, { a: 2 }, { a: 3 }]);
+    });
+
+    QUnit.test('handle null array', function (assert) {
+      assert.deepEqual(this.subject('blah', null), []);
     });
   });
 

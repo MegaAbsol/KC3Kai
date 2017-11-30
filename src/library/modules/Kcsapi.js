@@ -326,7 +326,7 @@ Previously known as "Reactor"
 		/*-------------------------------------------------------*/
 		/*----------------------[ LIBRARY ]----------------------*/
 		/*-------------------------------------------------------*/
-	
+		
 		/* Picture book
 		-------------------------------------------------------*/
 		"api_get_member/picture_book":function(params, response, headers){
@@ -473,8 +473,9 @@ Previously known as "Reactor"
 		
 		// Equipment dragging
 		"api_req_kaisou/slot_exchange_index":function(params, response, headers){
-			var UpdatingShip = KC3ShipManager.get(params.api_id);
-			UpdatingShip.items = response.api_data.api_slot;
+			var updatingShip = KC3ShipManager.get(params.api_id);
+			// git rid of unused 5th element, guarantee equipment(4) is ex_item
+			updatingShip.items = response.api_data.api_slot.slice(0, 4);
 			KC3ShipManager.save();
 			// If ship is in a fleet, switch view to the fleet containing the ship
 			var fleetNum = KC3ShipManager.locateOnFleet(params.api_id);
@@ -491,10 +492,11 @@ Previously known as "Reactor"
 			var ShipTo = KC3ShipManager.get(params.api_set_ship);
 			var setExSlot = params.api_set_slot_kind == 1;
 			var unsetExSlot = params.api_unset_slot_kind == 1;
-			ShipFrom.items = response.api_data.api_ship_data.api_unset_ship.api_slot;
+			// git rid of unused 5th element, guarantee equipment(4) is ex_item
+			ShipFrom.items = response.api_data.api_ship_data.api_unset_ship.api_slot.slice(0, 4);
 			if(unsetExSlot) ShipFrom.ex_item = response.api_data.api_ship_data.api_unset_ship.api_slot_ex;
 			var oldGearObj = KC3GearManager.get(setExSlot ? ShipTo.ex_item : ShipTo.items[params.api_set_idx]);
-			ShipTo.items = response.api_data.api_ship_data.api_set_ship.api_slot;
+			ShipTo.items = response.api_data.api_ship_data.api_set_ship.api_slot.slice(0, 4);
 			if(setExSlot) ShipTo.ex_item = response.api_data.api_ship_data.api_set_ship.api_slot_ex;
 			KC3ShipManager.save();
 			// If ship is in a fleet, switch view to the fleet containing the ship
@@ -646,58 +648,55 @@ Previously known as "Reactor"
 		/* Change fleet member
 		-------------------------------------------------------*/
 		"api_req_hensei/change":function(params, response, headers){
-			var fleetIndex = parseInt(params.api_id, 10);
+			var fleetNum = parseInt(params.api_id, 10),
+				fleetIndex = fleetNum - 1;
 			
 			// If removing all ships except flagship
 			if(typeof response.api_data != "undefined"){
 				if(typeof response.api_data.api_change_count != "undefined"){
-					PlayerManager.fleets[ fleetIndex-1 ].clearNonFlagShips();
+					PlayerManager.fleets[fleetIndex].clearNonFlagShips();
 					PlayerManager.saveFleets();
-					KC3Network.trigger("Fleet", { switchTo: fleetIndex });
+					KC3Network.trigger("Fleet", { switchTo: fleetNum });
 					return true;
 				}
 			}
 			
 			// Ship deploying / removing / swapping
-			// Concat all ship IDs in all fleets into an array
-			var flatShips  = PlayerManager.fleets
-				.map(function(x){ return x.ships; })
-				.reduce(function(x,y){ return x.concat(y); });
-			// Target ship index in a fleet
+			// Target ship index on a fleet to be changed
 			var changedIndex = parseInt(params.api_ship_idx, 10);
-			// Target ship ID, -1 if removed
-			var changingShip = parseInt(params.api_ship_id,10);
-			// Swap from source ship index in flat array
-			var oldSwaperSlot = flatShips.indexOf(changingShip);
-			// Swap from source ship ID, -1 if empty
-			var oldSwapeeSlot = flatShips[ (fleetIndex-1) * 6 + changedIndex ];
-			// Swap from source fleet index
-			var oldFleet = Math.floor(oldSwaperSlot / 6);
-			if(changingShip > -1){ // Deploy or swap ship
+			// Target ship slot old ship ID, -1 if empty
+			var changedShip = PlayerManager.fleets[fleetIndex].ships[changedIndex];
+			// Source ship ID to be set, -1 if to be removed, -2 if remove all but flagship
+			var changingShip = parseInt(params.api_ship_id, 10);
+			// Source fleet index where source ship swapped from, -1 if not on fleet
+			var oldFleetIndex = changingShip > 0 ? KC3ShipManager.locateOnFleet(changingShip) : -1;
+			// Source ship index on the source fleet, -1 if not on fleet
+			var oldShipIndex = oldFleetIndex > -1 ? PlayerManager.fleets[oldFleetIndex].ships.indexOf(changingShip) : -1;
+			if(changingShip > 0){ // Deploy or swap ship
 				// Deploy ship to target fleet first, to avoid issue when swapping in the same fleet
-				PlayerManager.fleets[fleetIndex-1].ships[changedIndex] = changingShip;
+				PlayerManager.fleets[fleetIndex].ships[changedIndex] = changingShip;
 				// Swap ship from source fleet
-				if(oldSwaperSlot > -1){
-					PlayerManager.fleets[oldFleet].ships[oldSwaperSlot % 6] = oldSwapeeSlot;
-					// If source ship slot is empty, apply ship removing on source fleet
-					if(oldSwapeeSlot <= 0){
-						PlayerManager.fleets[oldFleet].ships.splice(oldSwaperSlot % 6, 1);
-						PlayerManager.fleets[oldFleet].ships.push(-1);
+				if(oldFleetIndex > -1 && oldShipIndex > -1){
+					PlayerManager.fleets[oldFleetIndex].ships[oldShipIndex] = changedShip;
+					// If target ship slot is empty, apply ship removing on source fleet
+					if(changedShip <= 0){
+						PlayerManager.fleets[oldFleetIndex].ships.splice(oldShipIndex, 1);
+						PlayerManager.fleets[oldFleetIndex].ships.push(-1);
 					}
 					// If not the same fleet, also recheck akashi repair of source fleet
-					if(oldFleet !== fleetIndex-1){
-						PlayerManager.akashiRepair.onChange(PlayerManager.fleets[oldFleet]);
-						PlayerManager.fleets[oldFleet].updateAkashiRepairDisplay();
+					if(oldFleetIndex !== fleetIndex){
+						PlayerManager.akashiRepair.onChange(PlayerManager.fleets[oldFleetIndex]);
+						PlayerManager.fleets[oldFleetIndex].updateAkashiRepairDisplay();
 					}
 				}
 			} else { // Remove ship
-				PlayerManager.fleets[fleetIndex-1].ships.splice(changedIndex, 1);
-				PlayerManager.fleets[fleetIndex-1].ships.push(-1);
+				PlayerManager.fleets[fleetIndex].ships.splice(changedIndex, 1);
+				PlayerManager.fleets[fleetIndex].ships.push(-1);
 			}
-			PlayerManager.akashiRepair.onChange(PlayerManager.fleets[fleetIndex-1]);
-			PlayerManager.fleets[fleetIndex-1].updateAkashiRepairDisplay();
+			PlayerManager.akashiRepair.onChange(PlayerManager.fleets[fleetIndex]);
+			PlayerManager.fleets[fleetIndex].updateAkashiRepairDisplay();
 			PlayerManager.saveFleets();
-			KC3Network.trigger("Fleet", { switchTo: fleetIndex });
+			KC3Network.trigger("Fleet", { switchTo: fleetNum });
 		},
 		
 		/* Lock a ship
@@ -860,6 +859,8 @@ Previously known as "Reactor"
 			delete thisMap.kinds;
 			delete thisMap.maxhps;
 			delete thisMap.baseHp;
+			delete thisMap.debuffFlag;
+			delete thisMap.debuffSound;
 			KC3SortieManager.setCurrentMapData(thisMap, world, map);
 		},
 		
@@ -993,6 +994,21 @@ Previously known as "Reactor"
 			this["api_req_combined_battle/battle"].apply(this,arguments);
 		},
 		
+		/* NIGHT BATTLES to DAY BATTLES
+		-------------------------------------------------------*/
+		"api_req_sortie/night_to_day":function(params, response, headers){
+			response.api_data.api_name = response.api_data.api_name || "night_to_day";
+			KC3SortieManager.engageBattle(
+				response.api_data,
+				Date.toUTCseconds(headers.Date)
+			);
+			KC3Network.trigger("BattleStart");
+		},
+		"api_req_combined_battle/ec_night_to_day":function(params, response, headers){
+			response.api_data.api_name = "ec_night_to_day";
+			this["api_req_sortie/night_to_day"].apply(this,arguments);
+		},
+		
 		/* BATTLE STARTS as NIGHT
 		-------------------------------------------------------*/
 		"api_req_battle_midnight/sp_midnight":function(params, response, headers){
@@ -1114,6 +1130,9 @@ Previously known as "Reactor"
 			KC3SortieManager.sendFCFHome();
 			KC3Network.delay(0, "Fleet");
 			KC3Network.trigger("Fleet");
+		},
+		"api_req_sortie/goback_port":function(params, response, headers){
+			this["api_req_combined_battle/goback_port"].apply(this,arguments);
 		},
 		
 		/*-------------------------------------------------------*/
@@ -1338,28 +1357,27 @@ Previously known as "Reactor"
 		-------------------------------------------------------*/
 		"api_req_nyukyo/start":function(params, response, headers){
 			var utcSeconds = Date.toUTCseconds(headers.Date),
-				shipId     = parseInt( params.api_ship_id , 10),
-				bucket     = parseInt( params.api_highspeed , 10),
-				nDockNum   = parseInt( params.api_ndock_id , 10),
-				shipData   = KC3ShipManager.get( shipId );
+				shipId     = parseInt(params.api_ship_id, 10),
+				bucket     = parseInt(params.api_highspeed, 10),
+				dockNum    = parseInt(params.api_ndock_id, 10),
+				shipData   = KC3ShipManager.get(shipId);
 			
-			PlayerManager.setResources(utcSeconds, null, [-shipData.repair[1],0,-shipData.repair[2],0]);
+			PlayerManager.setResources(utcSeconds, null, [-shipData.repair[1], 0, -shipData.repair[2], 0]);
 			if(bucket == 1){
 				PlayerManager.consumables.buckets -= 1;
 				PlayerManager.setConsumables();
 				
-				// If ship is still is the list being repaired, remove Her
-				var herRepairIndex = PlayerManager.repairShips.indexOf( shipId );
-				if(herRepairIndex  > -1){
-					PlayerManager.repairShips.splice(herRepairIndex, 1);
-				}
+				// If ship is still is the list being repaired, mark her repaired
+				var herRepairIndex = PlayerManager.repairShips.indexOf(shipId);
+				if(herRepairIndex > -1) PlayerManager.repairShips[herRepairIndex] = -1;
+				PlayerManager.repairShips[dockNum] = -1;
 				
 				KC3Database.Naverall({
 					data:[0,0,0,0,0,-1,0,0]
 				},shipData.lastSortie[0]);
 				
 				shipData.applyRepair();
-				KC3TimerManager.repair( nDockNum ).deactivate();
+				KC3TimerManager.repair(dockNum).deactivate();
 			}
 			
 			shipData.perform('repair');
@@ -1377,20 +1395,21 @@ Previously known as "Reactor"
 			PlayerManager.consumables.buckets -= 1;
 			PlayerManager.setConsumables();
 			
-			// If ship is still is the list being repaired, remove Her
-			var
-				shipId   = PlayerManager.repairShips[ params.api_ndock_id ],
+			// If ship is still is the list being repaired, mark her repaired
+			var dockNum  = parseInt(params.api_ndock_id, 10),
+				shipId   = PlayerManager.repairShips[dockNum],
 				shipData = KC3ShipManager.get(shipId);
-			PlayerManager.repairShips.splice(params.api_ndock_id, 1);
+			PlayerManager.repairShips[dockNum] = -1;
+			if(shipData.exists()){
+				KC3Database.Naverall({
+					data:[0,0,0,0,0,-1,0,0]
+				},shipData.lastSortie[0]);
+				shipData.perform('repair');
+				shipData.applyRepair();
+				KC3ShipManager.save();
+			}
 			
-			KC3Database.Naverall({
-				data:[0,0,0,0,0,-1,0,0]
-			},shipData.lastSortie[0]);
-			shipData.perform('repair');
-			shipData.applyRepair();
-			KC3ShipManager.save();
-			
-			KC3TimerManager.repair( params.api_ndock_id ).deactivate();
+			KC3TimerManager.repair(dockNum).deactivate();
 			KC3Network.trigger("Consumables");
 			KC3Network.trigger("Timers");
 			KC3Network.trigger("Fleet");
@@ -1491,7 +1510,7 @@ Previously known as "Reactor"
 			
 			shipList.forEach(function(rosterId){
 				var shipData = KC3ShipManager.get(rosterId);
-				if(shipData.masterId > 0) {
+				if(shipData.exists()) {
 					shipData.getDefer()[1].reject();
 					shipData.getDefer()[2].reject();
 					shipData.pendingConsumption.costnull=[[
@@ -1605,7 +1624,7 @@ Previously known as "Reactor"
 							pendCond = shipData.pendingConsumption,
 							dataInd  = Object.keys(pendCond).indexOf('costnull'),
 							consDat  = [shipData.fuel,shipData.ammo,shipData.slots.reduce(function(x,y){return x+y;})];
-						if(shipData.masterId > 0) {
+						if(shipData.exists()) {
 							// if there's a change in ship supply
 							console.debug("Pending consumption for Exped ship", rosterId, dataInd, pendCond.costnull, consDat);
 							if(dataInd >= 0) {

@@ -7257,6 +7257,24 @@ var PS = {};
       };
       return FleetTotalAsw;
   })();
+  var FleetTotalLos = (function () {
+      function FleetTotalLos(value0) {
+          this.value0 = value0;
+      };
+      FleetTotalLos.create = function (value0) {
+          return new FleetTotalLos(value0);
+      };
+      return FleetTotalLos;
+  })();
+  var FleetTotalAa = (function () {
+      function FleetTotalAa(value0) {
+          this.value0 = value0;
+      };
+      FleetTotalAa.create = function (value0) {
+          return new FleetTotalAa(value0);
+      };
+      return FleetTotalAa;
+  })();
   var FleetDrum = (function () {
       function FleetDrum(value0) {
           this.value0 = value0;
@@ -7306,6 +7324,8 @@ var PS = {};
       return AnyOf;
   })();
   var getExpeditionRequirement = function (v) {
+      // Shortcuts
+      var addGroup = Data_Semigroup.append(Data_Semigroup.semigroupArray);
       var submarine = function (n) {
           return [ new FleetSTypeCount(n, [ KanColle_Generated_SType.SS.value, KanColle_Generated_SType.SSV.value ]) ];
       };
@@ -7326,6 +7346,12 @@ var PS = {};
       var aswTotal = function (n) {
           return [ new FleetTotalAsw(n) ];
       };
+      var losTotal = function (n) {
+          return [ new FleetTotalLos(n) ];
+      };
+      var aaTotal = function (n) {
+          return [ new FleetTotalAa(n) ];
+      };
       var fslAndSc = function (fsl) {
           return function (sc) {
               return [ new Flagship(new ShipLevel(fsl)), new FleetShipCount(sc) ];
@@ -7344,7 +7370,7 @@ var PS = {};
           return fslAndSc(3)(3);
       };
       if (v === 4) {
-          // FIXME add OR logic to stype count predicates
+          // TODO add OR logic to stype count predicates
           //return Data_Semigroup.append(Data_Semigroup.semigroupArray)(fslAndSc(3)(3))(new AnyOf(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(1)(KanColle_Generated_SType.CL.value))(ddOrDe(2)), Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(1)(KanColle_Generated_SType.DD.value))(sty(3)(KanColle_Generated_SType.DE.value))));
           return Data_Semigroup.append(Data_Semigroup.semigroupArray)(fslAndSc(3)(3))(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(1)(KanColle_Generated_SType.CL.value))(ddde(2)));
       };
@@ -7457,13 +7483,16 @@ var PS = {};
           return Data_Semigroup.append(Data_Semigroup.semigroupArray)(fslAndSc(25)(6))(Data_Semigroup.append(Data_Semigroup.semigroupArray)(lvlCnt(150))(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(1)(KanColle_Generated_SType.CL.value))(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(2)(KanColle_Generated_SType.AV.value))(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(2)(KanColle_Generated_SType.DD.value))([ new Flagship(new ShipTypeOneOf([ KanColle_Generated_SType.CL.value ])) ])))));
       };
       if (v === 100) {
-          return Data_Semigroup.append(Data_Semigroup.semigroupArray)(fslAndSc(5)(4))(Data_Semigroup.append(Data_Semigroup.semigroupArray)(lvlCnt(10))(ddde(3)));
+          return addGroup(fslAndSc(5)(4))(addGroup(lvlCnt(10))(ddde(3)));
       };
       if (v === 101) {
-          return Data_Semigroup.append(Data_Semigroup.semigroupArray)(fslAndSc(20)(4))(Data_Semigroup.append(Data_Semigroup.semigroupArray)(ddde(4))(aswTotal(180)));
+          return addGroup(fslAndSc(20)(4))(addGroup(ddde(4))(addGroup(aswTotal(180))(addGroup(aaTotal(70))(losTotal(16)))));
       };
       if (v === 102) {
-          return Data_Semigroup.append(Data_Semigroup.semigroupArray)(fslAndSc(50)(5))(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(1)(KanColle_Generated_SType.CL.value))(Data_Semigroup.append(Data_Semigroup.semigroupArray)(ddde(4))(aswTotal(285))));
+          return addGroup(fslAndSc(35)(5))(addGroup(lvlCnt(185))(addGroup(sty(1)(KanColle_Generated_SType.CL.value))(addGroup(ddde(4))(aswTotal(280)))));
+      };
+      if (v === 110) {
+          return addGroup(fslAndSc(40)(6))(addGroup(lvlCnt(150))(addGroup(sty(1)(KanColle_Generated_SType.AV.value))(addGroup(sty(1)(KanColle_Generated_SType.CL.value))(addGroup(ddde(2))(addGroup(aswTotal(200))(addGroup(aaTotal(200))(losTotal(140))))))));
       };
       return [  ];
   };
@@ -7496,6 +7525,12 @@ var PS = {};
       };
       if (v instanceof FleetTotalAsw) {
           return "fleet asw stat sum should be at least " + Data_Show.show(Data_Show.showInt)(v.value0);
+      };
+      if (v instanceof FleetTotalLos) {
+          return "fleet los stat sum should be at least " + Data_Show.show(Data_Show.showInt)(v.value0);
+      };
+      if (v instanceof FleetTotalAa) {
+          return "fleet anti-air stat sum should be at least " + Data_Show.show(Data_Show.showInt)(v.value0);
       };
       if (v instanceof FleetDrum) {
           return "fleet should have at least " + (Data_Show.show(Data_Show.showInt)(v.value0) + " drum(s)");
@@ -7547,6 +7582,16 @@ var PS = {};
                       return x.asw;
                   })(fleet)) >= req.value0;
               };
+              if (req instanceof FleetTotalLos) {
+                  return Data_Foldable.sum(Data_Foldable.foldableArray)(Data_Semiring.semiringInt)(Data_Functor.map(Data_Functor.functorArray)(function (x) {
+                      return x.los;
+                  })(fleet)) >= req.value0;
+              };
+              if (req instanceof FleetTotalAa) {
+                  return Data_Foldable.sum(Data_Foldable.foldableArray)(Data_Semiring.semiringInt)(Data_Functor.map(Data_Functor.functorArray)(function (x) {
+                      return x.aa;
+                  })(fleet)) >= req.value0;
+              };
               if (req instanceof FleetDrum) {
                   return Data_Foldable.sum(Data_Foldable.foldableArray)(Data_Semiring.semiringInt)(Data_Functor.map(Data_Functor.functorArray)(function (x) {
                       return x.drumCount;
@@ -7589,6 +7634,8 @@ var PS = {};
   exports["Flagship"] = Flagship;
   exports["FleetLevel"] = FleetLevel;
   exports["FleetTotalAsw"] = FleetTotalAsw;
+  exports["FleetTotalLos"] = FleetTotalLos;
+  exports["FleetTotalAa"] = FleetTotalAa;
   exports["FleetDrum"] = FleetDrum;
   exports["FleetShipWithDrum"] = FleetShipWithDrum;
   exports["FleetSTypeCount"] = FleetSTypeCount;
@@ -7642,6 +7689,7 @@ var PS = {};
   };
   var allExpeditionIds = Data_Array.range(1)(40);
   allExpeditionIds.push(...Data_Array.range(100)(102));
+  allExpeditionIds.push(110);
   exports["allExpeditionIds"] = allExpeditionIds;
   exports["mapResourceRows"] = mapResourceRows;
   exports["resourceRowsFill"] = resourceRowsFill;
@@ -7813,6 +7861,9 @@ var PS = {};
       };
       if (eId === 102) {
           return income(120)(0)(60)(60);
+      };
+      if (eId === 110) {
+          return income(0)(0)(10)(30);
       };
       return Data_Monoid.mempty(incomeMonoid);
   };
@@ -7987,6 +8038,9 @@ var PS = {};
       if (eId === 102) {
           return c(6.5)(3.5)(hm(2)(15));
       };
+      if (eId === 110) {
+          return c(1.5)(4.5)((35));
+      };
       return noCost;
   };
   var calcCost = function (c) {
@@ -8016,10 +8070,12 @@ var PS = {};
       return !Data_Array["null"](KanColle_Expedition_Requirement.getExpeditionRequirement($0));
   };
   var getExpeditionDisplayName = function (eId) {
-      return eId >= 100 && eId <= 107 ? "A" + (eId - 99) : eId;
+      return eId >= 100 && eId < 110 ? "A" + (eId - 99)
+        : eId >= 110 && eId < 120 ? "B" + (eId - 109)
+        : eId;
   };
   var getExpeditionWorld = function (eId) {
-      return eId < 100 ? Math.ceil(eId / 8) : Math.ceil((eId - 99) / 8);
+      return eId < 100 ? Math.ceil(eId / 8) : Math.ceil((eId - 99) / 10);
   };
   var getExpeditionInfo = function (eId) {
       return {
@@ -9087,12 +9143,12 @@ var PS = {};
       return EA(Data_Unfoldable.replicate(Data_Unfoldable.unfoldableArray)(40)($42));
   };
   var mkEA = function (xs) {
-      if (Data_Array.length(xs) === 43) {
+      if (Data_Array.length(xs) === 44) {
           return xs;
       };
       if (Data_Boolean.otherwise) {
           return Partial_Unsafe.unsafePartial(function (dictPartial) {
-              return Partial.crash(dictPartial)("expecting exactly 40 elements");
+              return Partial.crash(dictPartial)("expecting exactly 44 elements");
           });
       };
       throw new Error("Failed pattern match at KanColle.Expedition.New.EArray line 26, column 1 - line 28, column 72: " + [ xs.constructor.name ]);
@@ -9104,7 +9160,7 @@ var PS = {};
                   return v[i - 1];
               });
           };
-          if (1 <= 100 && i <= 102) {
+          if (1 <= 100 && i <= 110) {
               return Partial_Unsafe.unsafePartial(function (dictPartial) {
                   return v[i - 60];
               });
@@ -9223,7 +9279,7 @@ var PS = {};
       };
       var full = atLeast(6);
       return KanColle_Expedition_New_EArray.mkEA([ atLeast(2)([  ]), atLeast(4)([  ]), atLeast(3)([  ]), Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(1)(KanColle_Expedition_New_SType.CL.value))(sty(2)(KanColle_Expedition_New_SType.DD.value)), atLeast(4)(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(1)(KanColle_Expedition_New_SType.CL.value))(sty(2)(KanColle_Expedition_New_SType.DD.value))), atLeast(4)([  ]), full([  ]), full([  ]), atLeast(4)(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(1)(KanColle_Expedition_New_SType.CL.value))(sty(2)(KanColle_Expedition_New_SType.DD.value))), atLeast(3)(sty(2)(KanColle_Expedition_New_SType.CL.value)), atLeast(4)(sty(2)(KanColle_Expedition_New_SType.DD.value)), atLeast(4)(sty(2)(KanColle_Expedition_New_SType.DD.value)), full(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(1)(KanColle_Expedition_New_SType.CL.value))(sty(4)(KanColle_Expedition_New_SType.DD.value))), full(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(1)(KanColle_Expedition_New_SType.CL.value))(sty(3)(KanColle_Expedition_New_SType.DD.value))), full(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(2)(KanColle_Expedition_New_SType.CVLike.value))(sty(2)(KanColle_Expedition_New_SType.DD.value))), full(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(1)(KanColle_Expedition_New_SType.CL.value))(sty(2)(KanColle_Expedition_New_SType.DD.value))), full(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(1)(KanColle_Expedition_New_SType.CL.value))(sty(3)(KanColle_Expedition_New_SType.DD.value))), full(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(3)(KanColle_Expedition_New_SType.CVLike.value))(sty(2)(KanColle_Expedition_New_SType.DD.value))), full(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(2)(KanColle_Expedition_New_SType.BBV.value))(sty(2)(KanColle_Expedition_New_SType.DD.value))), Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(1)(KanColle_Expedition_New_SType.SSLike.value))(sty(1)(KanColle_Expedition_New_SType.CL.value)), Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(1)(KanColle_Expedition_New_SType.CL.value))(sty(4)(KanColle_Expedition_New_SType.DD.value)), full(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(1)(KanColle_Expedition_New_SType.CA.value))(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(1)(KanColle_Expedition_New_SType.CL.value))(sty(2)(KanColle_Expedition_New_SType.DD.value)))), full(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(2)(KanColle_Expedition_New_SType.BBV.value))(sty(2)(KanColle_Expedition_New_SType.DD.value))), full(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(1)(KanColle_Expedition_New_SType.CL.value))(sty(4)(KanColle_Expedition_New_SType.DD.value))), Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(2)(KanColle_Expedition_New_SType.CA.value))(sty(2)(KanColle_Expedition_New_SType.DD.value)), Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(1)(KanColle_Expedition_New_SType.CVLike.value))(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(1)(KanColle_Expedition_New_SType.CL.value))(sty(2)(KanColle_Expedition_New_SType.DD.value))), sty(2)(KanColle_Expedition_New_SType.SSLike.value), sty(3)(KanColle_Expedition_New_SType.SSLike.value), sty(3)(KanColle_Expedition_New_SType.SSLike.value), sty(4)(KanColle_Expedition_New_SType.SSLike.value), sty(4)(KanColle_Expedition_New_SType.SSLike.value), Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(1)(KanColle_Expedition_New_SType.CT.value))(sty(2)(KanColle_Expedition_New_SType.DD.value)), sty(2)(KanColle_Expedition_New_SType.DD.value), sty(2)(KanColle_Expedition_New_SType.DD.value), full(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(2)(KanColle_Expedition_New_SType.CVLike.value))(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(1)(KanColle_Expedition_New_SType.CA.value))(sty(1)(KanColle_Expedition_New_SType.DD.value)))), full(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(2)(KanColle_Expedition_New_SType.AV.value))(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(1)(KanColle_Expedition_New_SType.CL.value))(sty(1)(KanColle_Expedition_New_SType.DD.value)))), Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(1)(KanColle_Expedition_New_SType.CL.value))(sty(5)(KanColle_Expedition_New_SType.DD.value)), full(sty(5)(KanColle_Expedition_New_SType.DD.value)), Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(1)(KanColle_Expedition_New_SType.AS.value))(sty(4)(KanColle_Expedition_New_SType.SSLike.value)), full(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(1)(KanColle_Expedition_New_SType.CL.value))(Data_Semigroup.append(Data_Semigroup.semigroupArray)(sty(2)(KanColle_Expedition_New_SType.AV.value))(sty(2)(KanColle_Expedition_New_SType.DD.value)))),
-        atLeast(4)([  ]), atLeast(4)([  ]), atLeast(5)([  ]) ]);
+        atLeast(4)([  ]), atLeast(4)([  ]), atLeast(5)([  ]), atLeast(6)([  ]) ]);
   })();
   var getMinimumComposition = KanColle_Expedition_New_EArray.indEA(minimumCompositions);
   var concretizeComposition = function (expectCount) {
@@ -9518,7 +9574,7 @@ var PS = {};
           };
       };
       return KanColle_Expedition_New_EArray.mkEA([ i(0)(30)(0)(0), i(0)(100)(30)(0), i(30)(30)(40)(0), i(0)(60)(0)(0), i(200)(200)(20)(20), i(0)(0)(0)(80), i(0)(0)(50)(30), i(50)(100)(50)(50), i(350)(0)(0)(0), i(0)(50)(0)(30), i(0)(0)(0)(250), i(50)(250)(200)(50), i(240)(300)(0)(0), i(0)(240)(200)(0), i(0)(0)(300)(400), i(500)(500)(200)(200), i(70)(70)(50)(0), i(0)(0)(300)(100), i(400)(0)(50)(30), i(0)(0)(150)(0), i(320)(270)(0)(0), i(0)(10)(0)(0), i(0)(20)(0)(100), i(500)(0)(0)(150), i(900)(0)(500)(0), i(0)(0)(0)(900), i(0)(0)(800)(0), i(0)(0)(900)(350), i(0)(0)(0)(100), i(0)(0)(0)(100), i(0)(30)(0)(0), i(50)(50)(50)(50), i(0)(0)(0)(0), i(0)(0)(0)(0), i(0)(0)(240)(280), i(480)(0)(200)(200), i(0)(380)(270)(0), i(420)(0)(200)(0), i(0)(0)(300)(0), i(300)(300)(0)(100),
-        i(45)(45)(0)(0), i(70)(40)(0)(10), i(120)(0)(60)(60) ]);
+        i(45)(45)(0)(0), i(70)(40)(0)(10), i(120)(0)(60)(60), i(0)(0)(10)(30) ]);
   })();
   var getResource = KanColle_Expedition_New_EArray.indEA(resources);
   exports["getResource"] = getResource;
@@ -9880,6 +9936,16 @@ var PS = {};
               "api_use_bull":0.35,
               "api_win_item1":[1,1],
               "api_win_item2":[3,2]
+          },
+          {
+              "api_id":110,
+              "api_disp_no":"B1",
+              "api_deck_num":6,
+              "api_time":35,
+              "api_use_fuel":0.15,
+              "api_use_bull":0.45,
+              "api_win_item1":[10,1],
+              "api_win_item2":[1,1]
           }
       ];
 })(PS["KanColle.Expedition.New.Info"] = PS["KanColle.Expedition.New.Info"] || {});
@@ -10227,6 +10293,8 @@ var PS = {};
       $2.flagShipTypeOf = Data_Nullable.toNullable(rp.flagShipTypeOf);
       $2.levelCount = Data_Nullable.toNullable(rp.levelCount);
       $2.totalAsw = Data_Nullable.toNullable(rp.totalAsw);
+      $2.totalLos = Data_Nullable.toNullable(rp.totalLos);
+      $2.totalAa = Data_Nullable.toNullable(rp.totalAa);
       $2.drumCount = Data_Nullable.toNullable(rp.drumCount);
       $2.drumCarrierCount = Data_Nullable.toNullable(rp.drumCarrierCount);
       return $2;
@@ -10244,6 +10312,8 @@ var PS = {};
           flagShipTypeOf: Data_Nullable.toNullable(Data_Functor.map(Data_Maybe.functorMaybe)(Data_Functor.map(Data_Functor.functorArray)(KanColle_Generated_SType.showSType))(rp.flagShipTypeOf)),
           levelCount: Data_Nullable.toNullable(rp.levelCount),
           totalAsw: Data_Nullable.toNullable(rp.totalAsw),
+          totalLos: Data_Nullable.toNullable(rp.totalLos),
+          totalAa: Data_Nullable.toNullable(rp.totalAa),
           drumCount: Data_Nullable.toNullable(rp.drumCount),
           drumCarrierCount: Data_Nullable.toNullable(rp.drumCarrierCount),
           fleetSType: Data_Functor.map(Data_Functor.functorArray)(cov)(rp.fleetSType)
@@ -10255,6 +10325,8 @@ var PS = {};
       flagShipTypeOf: Data_Maybe.Nothing.value,
       levelCount: Data_Maybe.Nothing.value,
       totalAsw: Data_Maybe.Nothing.value,
+      totalLos: Data_Maybe.Nothing.value,
+      totalAa: Data_Maybe.Nothing.value,
       drumCount: Data_Maybe.Nothing.value,
       drumCarrierCount: Data_Maybe.Nothing.value,
       fleetSType: [  ]
@@ -10296,14 +10368,34 @@ var PS = {};
                   return $16;
               };
               if (fleetReq instanceof KanColle_Expedition_Requirement.FleetTotalAsw) {
-                  var $18 = {};
-                  for (var $19 in p) {
-                      if ({}.hasOwnProperty.call(p, $19)) {
-                          $18[$19] = p[$19];
+                  var $180 = {};
+                  for (var $190 in p) {
+                      if ({}.hasOwnProperty.call(p, $190)) {
+                          $180[$190] = p[$190];
                       };
                   };
-                  $18.totalAsw = new Data_Maybe.Just(fleetReq.value0);
-                  return $18;
+                  $180.totalAsw = new Data_Maybe.Just(fleetReq.value0);
+                  return $180;
+              };
+              if (fleetReq instanceof KanColle_Expedition_Requirement.FleetTotalLos) {
+                  var $181 = {};
+                  for (var $191 in p) {
+                      if ({}.hasOwnProperty.call(p, $191)) {
+                          $181[$191] = p[$191];
+                      };
+                  };
+                  $181.totalLos = new Data_Maybe.Just(fleetReq.value0);
+                  return $181;
+              };
+              if (fleetReq instanceof KanColle_Expedition_Requirement.FleetTotalAa) {
+                  var $182 = {};
+                  for (var $192 in p) {
+                      if ({}.hasOwnProperty.call(p, $192)) {
+                          $182[$192] = p[$192];
+                      };
+                  };
+                  $182.totalAa = new Data_Maybe.Just(fleetReq.value0);
+                  return $182;
               };
               if (fleetReq instanceof KanColle_Expedition_Requirement.FleetDrum) {
                   var $20 = {};
@@ -10340,7 +10432,7 @@ var PS = {};
                   return $28;
               };
               if (fleetReq instanceof KanColle_Expedition_Requirement.AnyOf) {
-                  // FIXME
+                  // TODO
                   return {anyOf: fleetReq.values};
               };
               if (fleetReq instanceof KanColle_Expedition_Requirement.FleetShipCount) {
@@ -10393,6 +10485,16 @@ var PS = {};
                           return s.asw;
                       })(fleet)) >= tas;
                   })(req.totalAsw),
+                  totalLos: Data_Functor.map(Data_Maybe.functorMaybe)(function (tls) {
+                      return Data_Foldable.sum(Data_Foldable.foldableArray)(Data_Semiring.semiringInt)(Data_Functor.map(Data_Functor.functorArray)(function (s) {
+                          return s.los;
+                      })(fleet)) >= tls;
+                  })(req.totalLos),
+                  totalAa: Data_Functor.map(Data_Maybe.functorMaybe)(function (taa) {
+                      return Data_Foldable.sum(Data_Foldable.foldableArray)(Data_Semiring.semiringInt)(Data_Functor.map(Data_Functor.functorArray)(function (s) {
+                          return s.aa;
+                      })(fleet)) >= taa;
+                  })(req.totalAa),
                   drumCount: Data_Functor.map(Data_Maybe.functorMaybe)(function (dc) {
                       return Data_Foldable.sum(Data_Foldable.foldableArray)(Data_Semiring.semiringInt)(Data_Functor.map(Data_Functor.functorArray)(function (s) {
                           return s.drumCount;
@@ -10420,6 +10522,8 @@ var PS = {};
                   flagShipTypeOf: toFalseF(Data_Maybe.functorMaybe)(req.flagShipTypeOf),
                   levelCount: toFalseF(Data_Maybe.functorMaybe)(req.levelCount),
                   totalAsw: toFalseF(Data_Maybe.functorMaybe)(req.totalAsw),
+                  totalLos: toFalseF(Data_Maybe.functorMaybe)(req.totalLos),
+                  totalAa: toFalseF(Data_Maybe.functorMaybe)(req.totalAa),
                   drumCount: toFalseF(Data_Maybe.functorMaybe)(req.drumCount),
                   drumCarrierCount: toFalseF(Data_Maybe.functorMaybe)(req.drumCarrierCount),
                   fleetSType: toFalseF(Data_Functor.functorArray)(req.fleetSType)

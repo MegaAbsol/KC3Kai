@@ -1,7 +1,7 @@
 /* ShipManager.js
 KC3改 Ship Manager
 
-Managesship roster and does indexing for data access.
+Manages ship roster and does indexing for data access.
 Saves and loads list to and from localStorage
 */
 (function(){
@@ -84,7 +84,7 @@ Saves and loads list to and from localStorage
 						cShip[key] = tempData[key];
 				});
 				
-				// enforce freshify sortie0 placeholder
+				// enforce fresh sortie0 placeholder
 				(function(){
 					var szs = 'sortie0';
 					var ls  = cShip.lastSortie;
@@ -165,7 +165,11 @@ Saves and loads list to and from localStorage
 				cShip.getDefer()[1].resolve(null); // removes async wait
 			}
 			cShip.getDefer()[2].resolve(cShip.fuel,cShip.bull,cShip.slots.reduce(function(x,y){return x+y;})); // mark resolve wait for port
-
+			
+			// update picture book base form info
+			if(PictureBook) {
+				PictureBook.updateBaseShip(cShip.masterId);
+			}
 		},
 		
 		// Mass set multiple ships
@@ -193,13 +197,13 @@ Saves and loads list to and from localStorage
 			this.save();
 		},
 		
-		// Remove ship from the list, scrapped, mod-fodded, or sunk
+		// Remove ship from the list, scrapped, mod-fodder, or sunk
 		remove :function( rosterId ){
 			console.log("Removing ship", rosterId);
 			var thisShip = this.list["x"+rosterId];
 			if(typeof thisShip != "undefined"){
 				// initializing for fleet sanitizing of zombie ships
-				var shipTargetFleetID = this.locateOnFleet(rosterId);
+				var shipTargetFleetID = this.locateOnFleet(parseInt(rosterId, 10));
 				// check whether the designated ship is on fleet or not
 				if(shipTargetFleetID >= 0){
 					PlayerManager.fleets[shipTargetFleetID].discard(rosterId);
@@ -232,12 +236,21 @@ Saves and loads list to and from localStorage
 		},
 		
 		// Locate which fleet the ship is in, return -1 if not in any fleet
+		// similar with Ship.onFleet, but return 0-based index not 1-based sequence
 		locateOnFleet: function( rosterId ){
-			var flatShips  = PlayerManager.fleets
-				.map(function(x){ return x.ships; })
-				.reduce(function(x,y){ return x.concat(y); });
-			var shipIndex = flatShips.indexOf(Number(rosterId));
-			return shipIndex < 0 ? -1 : Math.floor(shipIndex / 6);
+			var fleetId = -1;
+			PlayerManager.fleets.find((fleet, index) => {
+				if(fleet.ships.find(rid => rid == rosterId)){
+					fleetId = index;
+					return true;
+				}
+			});
+			return fleetId;
+		},
+		
+		masterExists: function( masterId, matchBaseForm = true ){
+			var idToFind = matchBaseForm ? RemodelDb.originOf(masterId) || masterId : masterId;
+			return this.find(ship => idToFind === (matchBaseForm ? RemodelDb.originOf(ship.masterId) : ship.masterId)).length > 0;
 		},
 		
 		// Save ship list onto local storage

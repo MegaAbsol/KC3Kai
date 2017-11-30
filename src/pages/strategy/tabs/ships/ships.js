@@ -282,9 +282,11 @@
 		},
 
 		refreshShowNameFilter: function() {
+			var self = this;
 			const newNameCriteria = $(".show_name_filter .name_criteria").val();
 			const nameToSearch = newNameCriteria.toLowerCase();
 			let hiddenShipsByName = 0;
+			$(".ingame_page").remove();
 			if (nameToSearch.length > 0) {
 				$(".ship_list .ship_item").each(function() {
 					// also search for JP name and kana yomi, not so useful for JP tho
@@ -296,12 +298,23 @@
 						|| shipNameKana.includes(nameToSearch));
 					hiddenShipsByName += isToHide & 1;
 					$(this).toggleClass("hidden_by_name", isToHide);
-					$(".ingame_page").hide();
 				});
 			} else {
 				$(".ship_list .ship_item").removeClass("hidden_by_name");
-				$(".ingame_page").toggle(this.pageNo);
 			}
+
+			let visibleShips = 0;
+			$(".ship_list .ship_item").each(function() {
+				if(!$(this).hasClass("hidden_by_name")) {
+					$(this).removeClass("odd").removeClass("even")
+						.addClass(visibleShips % 2 ? "even" : "odd");
+					if(visibleShips % 10 === 0)
+						$("<div>").addClass("ingame_page")
+							.html("Page " + Math.ceil((visibleShips + 1) / 10))
+							.insertBefore(this).toggle(self.pageNo);
+					visibleShips++;
+				}
+			});
 			// update listed ship counter
 			// have to take filtered list by data into account since hidden by name are still in list
 			const filteredBeforeName = $(".ship_count .count_value .listed").data("filtered") || 0;
@@ -392,18 +405,22 @@
 				};
 			}
 			// Append sortno as default sorter to keep order stable
-			var lastSorterReverse = this.getLastCurrentSorter().reverse;
-			var mergedSorters = this.currentSorters.concat([{
+			const lastSorterReverse = this.getLastCurrentSorter().reverse;
+			const sortnoSorter = {
 				name: "sortno",
 				reverse: lastSorterReverse
-			}]);
-			// To simulate in game behavior, if 1st sorter is stype, and no level found
-			if(this.currentSorters[0].name == "type"
-				&& this.currentSorters.every(si => si.name !== "lv")){
-				mergedSorters.push({
-					name: "lv",
-					reverse: false
-				});
+			};
+			const mergedSorters = this.currentSorters.concat([sortnoSorter]);
+			// To simulate in-game behavior: if 1st sorter is stype,
+			// reverse sortno and add descending level if necessary
+			if(this.currentSorters[0].name == "type"){
+				sortnoSorter.reverse = !sortnoSorter.reverse;
+				if(this.currentSorters.every(si => si.name !== "lv")){
+					mergedSorters.push({
+						name: "lv",
+						reverse: false
+					});
+				}
 			}
 			// For duplicated ships, final sorter if roster ID not used
 			if(this.currentSorters.every(si => si.name !== "id")){
@@ -993,12 +1010,6 @@
 
 				// Fill up list
 				Object.keys(FilteredShips).forEach(function(shipCtr){
-					if(shipCtr%10 === 0){
-						$("<div>").addClass("ingame_page")
-							.html("Page "+Math.ceil((Number(shipCtr)+1)/10))
-							.appendTo(self.shipList);
-					}
-
 					cShip = FilteredShips[shipCtr];
 					shipLevel = cShip.level;
 
@@ -1016,7 +1027,6 @@
 					// elements constructing for the time-consuming 'first time rendering'
 					cElm = $(".tab_ships .factory .ship_item").clone().appendTo(self.shipList);
 					cShip.view = cElm;
-					if(shipCtr%2 === 0){ cElm.addClass("even"); }else{ cElm.addClass("odd"); }
 
 					$(".ship_id", cElm).text( cShip.id );
 					$(".ship_img .ship_icon", cElm)
@@ -1140,12 +1150,7 @@
 		/* Compute Derived Stats without Equipment
 		--------------------------------------------*/
 		getDerivedStatNaked :function(statName, equippedValue, shipObj){
-			shipObj.equipment(true).forEach(gear => {
-				if(gear.masterId > 0){
-					equippedValue -= gear.master()["api_" + statName];
-				}
-			});
-			return equippedValue;
+			return equippedValue - shipObj.equipmentTotalStats(statName, true);
 		},
 
 		/* Show cell contents of a mod stat
@@ -1183,7 +1188,7 @@
 			var element = $(".ship_equip_" + equipNum, cElm);
 			if(gearId > 0){
 				var gear = KC3GearManager.get(gearId);
-				if(gear.itemId <= 0){ element.hide(); return; }
+				if(gear.isDummy()){ element.hide(); return; }
 				var ship = shipId > 0 ? KC3ShipManager.get(shipId) : undefined;
 				$("img", element)
 					.attr("src", "/assets/img/items/" + gear.master().api_type[3] + ".png")

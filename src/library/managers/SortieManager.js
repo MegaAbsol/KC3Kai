@@ -14,11 +14,9 @@ Stores and manages states and functions during sortie of fleets (including PvP b
 		map_world: 0,
 		map_num: 0,
 		map_difficulty: 0,
-		nextNodeCount: 0,
 		hqExpGained: 0,
 		nodes: [],
 		boss: {},
-		onBossAvailable: false,
 		focusedFleet: [],
 		supportFleet: [],
 		fcfCheck: [],
@@ -39,7 +37,6 @@ Stores and manages states and functions during sortie of fleets (including PvP b
 			this.map_num = mapnum;
 			const thisMap = this.getCurrentMapData();
 			this.map_difficulty = world < 10 ? 0 : thisMap.difficulty || 0;
-			this.nextNodeCount = 0;
 			this.hqExpGained = 0;
 			this.boss = {
 				info: false,
@@ -147,11 +144,14 @@ Stores and manages states and functions during sortie of fleets (including PvP b
 		getSupportingFleet :function(bossSupport){
 			function supportFormula(expedNum, isBoss){
 				// expedition ID extended since 207-10-18, 101 no longer the start of event support
-				// FIXME World 1 A1 = 100, A2 = 101, A3 = 102. event ID still unknown
-				var event = (expedNum > 200);
-				if(event) expedNum -= 200;
-				var world = Math.floor((expedNum - 1) / 8) + 1;
-				var n = (expedNum - 1) % 8;
+				// starts from 301 since 2017-11-17, might be retrieved from master missions with disp no S1, S2
+				const eventStartId = 301 - 1;
+				const mission = KC3Master.mission(expedNum);
+				let world = mission ? mission.api_maparea_id : 0;
+				const event = world >= 10 || expedNum > eventStartId;
+				if(event) expedNum -= eventStartId;
+				world = world || Math.floor((expedNum - 1) / 8) + 1;
+				const n = (expedNum - 1) % 8;
 				return (world === 5 || event) && (isBoss ? n === 1 : n === 0);
 			}
 			for(var i = 2; i <= 4; i++)
@@ -227,19 +227,20 @@ Stores and manages states and functions during sortie of fleets (including PvP b
 			this.boss.comp = comp;
 			this.boss.letters = [KC3Meta.nodeLetter(this.map_world, this.map_num, cellno)];
 			console.debug("Boss node info on start", this.boss);
-			// Init on boss node callback
-			const self = this;
-			this.onBossAvailable = this.onBossAvailable || function(nodeObj){
-				self.boss.edge      = nodeObj.id;
-				self.boss.formation = nodeObj.eformation;
-				self.boss.ships     = nodeObj.eships;
-				self.boss.lvls      = nodeObj.elevels;
-				self.boss.maxhps    = nodeObj.maxHPs.enemy;
-				self.boss.stats     = nodeObj.eParam;
-				self.boss.equip     = nodeObj.eSlot;
-				self.boss.info      = true;
-				console.log("Boss node reached", self.boss);
-			};
+		},
+		
+		onBossAvailable :function(nodeObj){
+			if(this.boss && nodeObj){
+				this.boss.edge      = nodeObj.id;
+				this.boss.formation = nodeObj.eformation;
+				this.boss.ships     = nodeObj.eships;
+				this.boss.lvls      = nodeObj.elevels;
+				this.boss.maxhps    = nodeObj.maxHPs.enemy;
+				this.boss.stats     = nodeObj.eParam;
+				this.boss.equip     = nodeObj.eSlot;
+				this.boss.info      = true;
+				console.log("Boss node reached", this.boss);
+			}
 		},
 		
 		currentNode :function(){
@@ -251,47 +252,47 @@ Stores and manages states and functions during sortie of fleets (including PvP b
 			let nodeKind = "Dud";
 			// Map Start Point
 			// api_event_id = 0
-			if (nodeData.api_event_id == 0) {
+			if (nodeData.api_event_id === 0) {
 				nodeKind = "Dud";
 			}
 			// Route Selection Node
 			// api_event_id = 6
 			// api_event_kind = 2
-			else if (typeof nodeData.api_select_route != "undefined") {
+			else if (typeof nodeData.api_select_route !== "undefined") {
 				nodeKind = "Selector";
 			}
 			// Battle avoided node (message might be: Enemy not found / Peace sea / etc)
 			// api_event_id = 6
-			// api_event_kind = 0/1/3/4/5/6/7
-			else if (nodeData.api_event_id == 6) {
+			// api_event_kind = 0/1/3/4/5/6/7/8/9
+			else if (nodeData.api_event_id === 6) {
 				// Might use another name to show a different message?
 				nodeKind = "Dud";
 			}
 			// Resource Node
 			// api_event_id = 2
-			else if (typeof nodeData.api_itemget != "undefined") {
+			else if (typeof nodeData.api_itemget !== "undefined") {
 				nodeKind = "Resource";
 			}
 			// Maelstrom Node
 			// api_event_id = 3
-			else if (typeof nodeData.api_happening != "undefined") {
+			else if (typeof nodeData.api_happening !== "undefined") {
 				nodeKind = "Maelstrom";
 			}
 			// Aerial Reconnaissance Node
 			// api_event_id = 7
 			// api_event_kind = 0
-			else if (nodeData.api_event_id == 7 && nodeData.api_event_kind == 0) {
+			else if (nodeData.api_event_id === 7 && nodeData.api_event_kind === 0) {
 				// similar with both Resource and Transport, found at 6-3 G & H
 				nodeKind = "Dud";
 			}
 			// Bounty Node, typical example: 1-6-N
 			// api_event_id = 8
-			else if (typeof nodeData.api_itemget_eo_comment != "undefined") {
+			else if (typeof nodeData.api_itemget_eo_comment !== "undefined") {
 				nodeKind = "Bounty";
 			}
 			// Transport Node, event only for now
 			// api_event_id = 9
-			else if (nodeData.api_event_id == 9) {
+			else if (nodeData.api_event_id === 9) {
 				nodeKind = "Transport";
 			}
 			// Battle Node
@@ -301,11 +302,12 @@ Stores and manages states and functions during sortie of fleets (including PvP b
 			// api_event_kind = 4 (aerial exchange battle), eg: 1-6 DFL
 			// api_event_kind = 5 (enemy combined), eg: 6-5 Boss M
 			// api_event_kind = 6 (defensive aerial battle), eg: 6-4 DFG; 6-5 GH
+			// api_event_kind = 7 (night to day battle), new for event fall 2017, why not 3?
 			// api_event_id = 4 (normal battle)
 			// api_event_id = 5 (boss battle)
 			// api_event_id = 7 (aerial battle / reconnaissance (api_event_kind = 0))
 			// api_event_id = 10 (long distance aerial raid)
-			else if ([1, 2, 3, 4, 5, 6].indexOf(nodeData.api_event_kind) >= 0) {
+			else if ([1, 2, 3, 4, 5, 6, 7].indexOf(nodeData.api_event_kind) >= 0) {
 				// api_event_id not used, might cause misjudging if new id added
 				nodeKind = "Battle";
 			} else {
@@ -316,7 +318,7 @@ Stores and manages states and functions during sortie of fleets (including PvP b
 			
 			// According testing, boss node not able to be indicated since api_bosscell_no return random values even edge is still hidden
 			const bossLetter = KC3Meta.nodeLetter(this.map_world, this.map_num, nodeData.api_bosscell_no);
-			if(this.boss.letters && this.boss.letters.indexOf(bossLetter) < 0)
+			if(Array.isArray(this.boss.letters) && this.boss.letters.indexOf(bossLetter) < 0)
 				this.boss.letters.push(bossLetter);
 			console.debug("Next edge points to boss node", nodeData.api_bosscell_no, bossLetter);
 			
@@ -420,30 +422,26 @@ Stores and manages states and functions during sortie of fleets (including PvP b
 		checkFCF :function( escapeData ){
 			if ((typeof escapeData !== "undefined") && (escapeData !== null)) {
 				console.debug("FCF triggered");
-				
-				var taihadIndex = escapeData.api_escape_idx[0];
-				var taihadShip;
-				var escortIndex = escapeData.api_tow_idx[0];
-				var escortShip;
-				
-				console.log("FCF fleet indexes", taihadIndex, escortIndex);
-				
-				if(taihadIndex < 7){
-					taihadShip = PlayerManager.fleets[0].ship(taihadIndex-1).rosterId;
-				}else{
-					taihadShip = PlayerManager.fleets[1].ship(taihadIndex-7).rosterId;
-				}
-				
-				if(escortIndex < 7){
-					escortShip = PlayerManager.fleets[0].ship(escortIndex-1).rosterId;
-				}else{
-					escortShip = PlayerManager.fleets[1].ship(escortIndex-7).rosterId;
-				}
-				
-				this.fcfCheck = [taihadShip, escortShip];
+
+				const taihadShip = this.getRetreatedShip(escapeData.api_escape_idx);
+				const escortShip = this.getRetreatedShip(escapeData.api_tow_idx);
+
+				this.fcfCheck = [taihadShip, escortShip].filter(function (ship) {
+					return typeof ship !== 'undefined';
+				});
 				
 				console.log("Has set fcfCheck to", this.fcfCheck);
 			}
+		},
+
+		getRetreatedShip: function (escapeIdx) {
+			if (!escapeIdx) { return undefined; }
+
+			const shipIndex = escapeIdx[0];
+			if (PlayerManager.combinedFleet && shipIndex > 6) {
+				return PlayerManager.fleets[this.fleetSent].ship(shipIndex - 7).rosterId;
+			}
+			return PlayerManager.fleets[this.fleetSent - 1].ship(shipIndex - 1).rosterId;
 		},
 		
 		sendFCFHome :function(){
@@ -633,12 +631,23 @@ Stores and manages states and functions during sortie of fleets (including PvP b
 			}
 			// Remove sortie comparison buffer
 			PlayerManager.hq.lastSortie = null;
+			// Record event debuff flags
+			if(portApiData && portApiData.api_event_object){
+				const eventObject = portApiData.api_event_object;
+				const thisMap = this.getCurrentMapData(this.map_world, this.map_num);
+				if(eventObject.api_m_flag){
+					thisMap.debuffFlag = eventObject.api_m_flag;
+				}
+				if(eventObject.api_m_flag2){
+					thisMap.debuffSound = (thisMap.debuffSound || 0) + 1;
+				}
+				this.setCurrentMapData(thisMap, this.map_world, this.map_num);
+			}
 			
 			// Reset sortie statistics
 			this.map_world = 0;
 			this.map_num = 0;
 			this.map_difficulty = 0;
-			this.nextNodeCount = 0;
 			this.hqExpGained = 0;
 			this.boss = { info: false };
 			this.clearNodes();
