@@ -323,6 +323,24 @@ KC3改 Ship Object
 		return fleetNum;
 	};
 
+	/**
+	 * @return a tuple for [position in fleet (0-based), fleet total ship amount].
+	 *         return [-1, 0] if this ship is not on any fleet.
+	 */
+	KC3Ship.prototype.fleetPosition = function(){
+		var position = -1,
+			total = 0;
+		if(this.exists()) {
+			const fleetNum = this.onFleet();
+			if(fleetNum > 0) {
+				var fleet = PlayerManager.fleets[fleetNum - 1];
+				position = fleet.ships.indexOf(this.rosterId);
+				total = fleet.countShips();
+			}
+		}
+		return [position, total];
+	};
+
 	KC3Ship.prototype.isRepairing = function(){
 		return PlayerManager.repairShips.indexOf(this.rosterId) >= 0;
 	};
@@ -382,7 +400,7 @@ KC3改 Ship Object
 	KC3Ship.prototype.maxAswMod = function(){
 		// the condition `Core.swf/vo.UserShipData.hasTaisenAbility()` also used
 		var maxAswBeforeMarriage = this.as[1];
-		var maxModAsw = this.nakedAsw() + KC3Ship.getMaxAswModernize();
+		var maxModAsw = this.nakedAsw() + KC3Ship.getMaxAswModernize() - (this.mod[6] || 0);
 		return maxAswBeforeMarriage > 0 ? maxModAsw : 0;
 	};
 
@@ -571,11 +589,21 @@ KC3改 Ship Object
 
 	KC3Ship.prototype.equipmentTotalStats = function(apiName, isExslotIncluded = true){
 		var total = 0;
+		var isArcticEquipped = false;
 		this.equipment(isExslotIncluded).forEach(equip => {
 			if(equip.exists()) {
 				total += (equip.master()["api_" + apiName] || 0);
+				if(equip.masterId === 268) isArcticEquipped = true;
 			}
 		});
+		// Special boost for Arctic Camouflage equipped on Tama Kai / Kai Ni, Kiso Kai Ni
+		// http://wikiwiki.jp/kancolle/?%CB%CC%CA%FD%CC%C2%BA%CC%28%A1%DC%CB%CC%CA%FD%C1%F5%C8%F7%29
+		if(isArcticEquipped && [146,216,547].indexOf(this.masterId) > -1) {
+			total += ({
+				"souk": 2,
+				"houk": 7
+			})[apiName] || 0;
+		}
 		return total;
 	};
 
@@ -1153,6 +1181,20 @@ KC3改 Ship Object
 			// Aerial Opening Airstrike not affected
 			[]
 		)[formationId] || 1;
+		// Modifier of vanguard formation depends on the position in the fleet
+		if(formationId === 6) {
+			const [shipPos, shipCnt] = this.fleetPosition();
+			// Vanguard formation needs 4 ships at least, fake ID make no sense
+			if(shipCnt >= 4) {
+				// Guardian ships counted from 3rd or 4th ship
+				const isGuardian = shipPos >= Math.floor(shipCnt / 2);
+				if(warfareType === "Shelling") {
+					formationModifier = isGuardian ? 1 : 0.5;
+				} else if(warfareType === "Antisub") {
+					formationModifier = isGuardian ? 0.6 : 1;
+				}
+			}
+		}
 		// Non-empty attack type tuple means this supposed to be night battle
 		const isNightBattle = nightSpecialAttackType.length > 0;
 		const canNightAntisub = warfareType === "Antisub" && (isNightStart || isCombined);
@@ -1420,8 +1462,8 @@ KC3改 Ship Object
 		// see comments below.
 		if ([2 /* DD */,3 /* CL */,9 /* BB */].indexOf( master.api_stype ) !== -1 &&
 			[
-				// Abukuma K2(200), Kinu K2(487), Yura K2(488)
-				200, 487, 488,
+				// Abukuma K2(200), Kinu K2(487), Yura K2(488), Tama K2(547)
+				200, 487, 488, 547,
 				// Satsuki K2(418), Mutsuki K2(434), Kisaragi K2(435), Fumizuki(548)
 				418, 434, 435, 548,
 				// Kasumi K2(464), Kasumi K2B(470), Ooshio K2(199), Asashio K2D(468), Michishio K2(489), Arashio K2(490)
@@ -1466,21 +1508,13 @@ KC3改 Ship Object
 		if (shipAsw < aswThreshold)
 			return false;
 
-		// according test, Taiyou needs a Torpedo Bomber with asw stat >= 7,
-		// current implemented: T97 / Tenzan (931 Air Group), Swordfish Mk.III (Skilled), TBM-3D
-		// see http://wikiwiki.jp/kancolle/?%C2%E7%C2%EB
-		const isHighAswTorpedoBomber = (masterData) => {
-			return masterData && masterData.masterId > 0 &&
-				masterData.api_type[2] === 8 &&
-				masterData.api_tais >= 7;
-		};
 		// for Taiyou Kai or Kai Ni, any equippable aircraft with asw should work,
 		// only Autogyro or PBY equipped will not let CVL anti-sub in day shelling phase,
 		// but Taiyou Kai+ can still OASW. only Sonar equipped can do neither.
 		if (isTaiyouKaiAfter) {
-			return [0,1,2,3,4].some( slot => this.equipment(slot).isAswAircraft(false) );
+			return this.equipment(true).some(gear => gear.isAswAircraft(false));
 		} else if (isTaiyouBase) {
-			return [0,1,2,3,4].some( slot => isHighAswTorpedoBomber( this.equipment(slot).master() ));
+			return this.equipment(true).some(gear => gear.isHighAswBomber());
 		}
 
 		const hasSonar = this.hasEquipmentType(1, 10);
@@ -1807,12 +1841,7 @@ KC3改 Ship Object
 				// even large radars (Kasumi K2 can equip), air radars okay too, see:
 				// https://twitter.com/nicolai_2501/status/923172168141123584
 				// https://twitter.com/nicolai_2501/status/923175256092581888
-				const isHighAccRadar = (masterData) => {
-					return masterData && masterData.masterId > 0 &&
-						[12, 13].includes(masterData.api_type[2]) &&
-						masterData.api_houm > 2;
-				};
-				const hasCapableRadar = [0,1,2,3,4].some(slot => isHighAccRadar(this.equipment(slot).master()));
+				const hasCapableRadar = this.equipment(true).some(gear => gear.isHighAccuracyRadar());
 				const hasSkilledLookout = this.hasEquipmentType(2, 39);
 				const smallMainGunCnt = this.countEquipmentType(2, 1);
 				// http://wikiwiki.jp/kancolle/?%CC%EB%C0%EF#dfcb6e1f
@@ -2017,6 +2046,9 @@ KC3改 Ship Object
 					case 5: // Line Abreast, enhanced by Echelon / Line Abreast unknown
 						modifier = 1.3;
 						break;
+					case 6: // Vanguard high evasion, but modifier unknown
+						modifier = 1.3;
+						break;
 				}
 				break;
 			default:
@@ -2189,7 +2221,7 @@ KC3改 Ship Object
 	//   - 1/4/5 (for line ahead / echelon / line abreast)
 	//   - 2 (for double line)
 	//   - 3 (for diamond)
-	//   - formation 6 (for vanguard) still under verification
+	//   - 6 (for vanguard)
 	// - all possible AACIs are considered and the largest AACI modifier
 	//   is used for calculation the maximum number of fixed shotdown
 	KC3Ship.prototype.fixedShotdownRange = function(formationId) {
